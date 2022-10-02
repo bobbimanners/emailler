@@ -183,6 +183,10 @@ I had an issue where the Pi was unable to connect to Google's SMTP server.
 It turned out it was trying to use IPv6, so I forced IPv4 as follows:
 `inet_protocols = ipv4`
 
+Another user reported an issue which was solved by commenting out this line
+
+`# smtpd_command_filter = pcre:/etc/postfix/command_filter`
+
 Finally I added the following block of settings to enabled SASL authentication
 when talking to Gmail:
 
@@ -238,7 +242,7 @@ smtp_tls_session_cache_database = btree:${data_directory}/smtp_scache
 # information on enabling SSL in the smtp client.
 
 relayhost = [smtp.gmail.com]:587
-smtpd_command_filter = pcre:/etc/postfix/command_filter
+# smtpd_command_filter = pcre:/etc/postfix/command_filter
 smtpd_relay_restrictions = permit_mynetworks permit_sasl_authenticated defer_unauth_destination
 #smtpd_recipient_restrictions = permit_mynetworks
 myhostname = raspberrypi.home
