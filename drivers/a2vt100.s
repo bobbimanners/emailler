@@ -21,6 +21,8 @@ Rows    = vt100_screen_rows
 putRS   = telnet_send_char
 SendStr = telnet_send_string
 
+COUT = $FDED
+
 ; Define symbol Videx for ][+/Videx Videoterm support instead of //e
 videx = 1
 
@@ -1028,13 +1030,14 @@ HelpStr ;".........1.........2.........3.........4.........5.........6.........7
 ; After movement COn has to be called.
 ; -------------------------------------
 
-.ifndef videx
 COff    pha            ; save registers
         tya
         pha
 
         lda civis      ; invisible?
         bne CO2        ; -> do nothing
+
+.ifndef videx
         lda CH         ; get column
         lsr            ; column DIV 2
         tay
@@ -1043,16 +1046,21 @@ COff    pha            ; save registers
         bit $c055
 CO1     sta (BASL),y
         bit $c054
+.else
+        lda #$0a       ; Register 10 (curs start line)
+        sta $c0b0
+        lda #$01       ; Start row 1, do not display
+        sta $c0b1
+        lda #$0b       ; Register 11 (curs end line)
+        sta $c0b0
+        lda #$00       ; End row 0
+        sta $c0b1
+.endif
 
 CO2     pla         ; restore registers
         tay
         pla
         rts
-.else
-COff
-; TODO - write me
-        rts
-.endif
 
 ; -------------------------------------
 ; COn - switch crsr on
@@ -1062,13 +1070,14 @@ COff
 ; opposite of COff
 ; -------------------------------------
 
-.ifndef videx
 COn     pha
         tya
         pha
 
         lda civis        ; invisible?
         bne COn4         ; -> do nothing
+
+.ifndef videx
         lda CH           ; get column
         lsr              ; column DIV 2
         tay
@@ -1086,15 +1095,22 @@ COn2    lda sCrsrChar
 COn3    sta (BASL),y
         bit $c054
 
+.else
+        lda #$0a       ; Register 10 (curs start line)
+        sta $c0b0
+        lda #$40       ; Start row 0, blinking
+        lda #1
+        sta $c0b1
+        lda #$0b       ; Register 11 (curs end line)
+        sta $c0b0
+        lda #11        ; End row 11
+        sta $c0b1
+.endif
+
 COn4    pla
         tay
         pla
         rts
-.else
-COn
-; TODO - write me
-        rts
-.endif
 
 ; -------------------------------------
 ; CPlot - move cursor
@@ -1128,6 +1144,17 @@ Plot    stx CV      ; set row
         ldy xVector+1
         stx BASL
         sty BASH
+.else
+        lda #$1e    ; ASCII code for cursor position command
+        jsr COUT
+        tya         ; Column
+        clc
+        adc #$20    ; Add 32
+        jsr COUT
+        txa         ; Row
+        clc
+        adc #$20    ; Add 32
+        jsr COUT
 .endif
         rts
 
@@ -1289,12 +1316,12 @@ VidexPage
 ; Affects: Y
 ; -------------------------------------
 VidexPrint
-        ldy BASH
-        bne VP1
-        ldy BASL
+        ldy BASH     ; BASH is either $00 or $01
+        bne VP1      ; It's $01
+        ldy BASL     ; Offset in first half of 512 byte page
         sta $cc00,y
         rts
-VP1     ldy BASL
+VP1     ldy BASL     ; Offset in second half of 512 byte page
         sta $cd00,y
         rts
 .endif
@@ -1451,6 +1478,7 @@ US3     lda (xVector),y ; copy char
         rts
 .else
 UScrl
+        ; TODO - Write me
         rts
 .endif
 
@@ -1510,6 +1538,7 @@ DS3     lda (xVector),y ; copy char
         rts
 .else
 DScrl
+        ; TODO - Write me
         rts
 .endif
 
@@ -1593,6 +1622,7 @@ EL2     sta (xVector),y ; clear char
         rts
 .else
 ErLn
+        ; TODO Write me
         rts
 .endif
 
@@ -1631,6 +1661,7 @@ EEL3    sta (BASL),y  ; clear char
         rts
 .else
 ErEnLn
+        ; TODO Write me
         rts
 .endif
 
@@ -1667,6 +1698,7 @@ EBL3    dey
         rts
 .else
 ErBeLn
+        ; TODO Write me
         rts
 .endif
 
