@@ -7,6 +7,7 @@
 .export vt100_exit_terminal         = ExitTerminal
 .export vt100_process_inbound_char  = ProcIn
 .export vt100_process_outbound_char = ProcOut
+.export videx_debug = VidexSetVec ; DEBUG ONLY
 .exportzp vt100_screen_cols         = 80
 .exportzp vt100_screen_rows         = 24
 
@@ -19,6 +20,9 @@ Cols    = vt100_screen_cols
 Rows    = vt100_screen_rows
 putRS   = telnet_send_char
 SendStr = telnet_send_string
+
+; Define symbol Videx for ][+/Videx Videoterm support instead of //e
+videx = 1
 
 ; *************************************
 ; *                                   *
@@ -133,6 +137,12 @@ sCrsrChar .res 1
 
 ; --- buffer for addDecDig ---
 mul10buf .res 1
+
+; --- Videx page (0,1,2,3) ---
+videxpage  .res 1
+
+; --- Videx start offset (2 bytes) --
+videxstart .res 2
 
 ; *************************************
 ; *
@@ -1106,11 +1116,13 @@ CPlot   jsr COff
 
 Plot    stx CV      ; set row
         sty CH      ; set col
+.ifndef videx
         jsr SLV
         ldx xVector ; set screen line
         ldy xVector+1
         stx BASL
         sty BASH
+.endif
         rts
 
 ; -------------------------------------
@@ -1170,7 +1182,17 @@ PCput   ldx lbPending   ; need new line?
         ldx #$00        ; clear pending
         stx lbPending
         jsr NewLn
-PC2     tax             ; save char
+PC2
+.ifdef videx
+        pha             ; Preserve character to print
+        ldx CH          ; Load cursor position
+        ldy CV          ; ...
+        jsr VidexSetVec ; Set up pointers
+        jsr VidexPage   ; Page in correct page on Videx
+        pla             ; Recover character to print
+        jsr VidexPrint  ; Print char in A
+.else
+        tax             ; save char
         lda CH          ; get crsr col
         lsr             ; col DIV 2
         tay
@@ -1179,6 +1201,7 @@ PC2     tax             ; save char
         bit $c055
 PC3     sta (BASL),y    ; char to screen
         bit $c054
+.endif
         ldy CH          ; get crsr col
 
         ; -- move on crsr --
@@ -1195,6 +1218,95 @@ PCend   pla         ; restore registers
         pla
         tax
         rts
+
+.ifdef videx
+; -------------------------------------
+; VidexSetVec - set BASL/BASH and videxpage
+;
+; Params: X - column
+;         Y - row
+; Returns: A - Videx page (0 to 3)
+; affects: A,X,Y
+; uses: xVector
+; -------------------------------------
+VidexSetVec
+        stx VSVTmp      ; Store row for later
+        lda videxstart  ; videxstart -> xVector
+        sta xVector
+        lda videxstart+1
+        sta xVector+1
+        cpy #$00
+        beq VP2         ; Row zero -> skip over loop
+VP1     lda xVector     ; row * 80 -> xVector (double prec)
+        clc
+        adc #80
+        sta xVector
+        lda xVector+1
+        adc #00
+        sta xVector+1
+        dey
+        bne VP1
+VP2     lda xVector     ; Add col -> xVector
+        clc
+        adc VSVTmp
+        sta xVector
+        sta BASL
+        lda xVector+1
+        adc #00
+        sta xVector+1   ; Now xVector has row * 80 + col
+        lsr             ; Discard LSbit of MSbyte
+        and #$03        ; Mask to get bits 9,10
+        sta videxpage   ; 512 byte page 0,1,2 or 3
+        tay
+        tax             ; Stash page for return
+        beq VP4         ; Page zero -> skip over loop
+VP3     lda xVector+1   ; MSB
+        sec
+        sbc #$02        ; Subtract 2 from MSB -> sub 512 from value
+        sta xVector+1
+        dey
+        bne VP3
+VP4     clc             ; Add $CC to MSbyte to make address
+        adc #$cc
+        sta BASH
+        txa             ; Return page in A
+        rts
+
+VSVTmp  .res 1
+
+; -------------------------------------
+; VidexPage - Page in the 512 byte page videxpage
+;
+; Params: A - page to switch to (0 to 3)
+; affects: A
+; -------------------------------------
+VidexPage
+        clv             ; Prepare for 'branch always' below
+        bne VP5
+        lda $c0b0       ; Page 0
+        bvc VP8         ; Branch always
+VP5     cmp #$01
+        bne VP6
+        lda $c0b4       ; Page 1
+        bvc VP8         ; Branch always
+VP6     cmp #$02
+        bne VP7
+        lda $c0b8       ; Page 2
+        bvc VP8         ; Branch always
+VP7     lda $c0bc       ; Page 3
+VP8     rts
+
+; -------------------------------------
+; VidexPrint - Print character on screen
+;
+; Params: A - character to print
+; Affects: Y
+; -------------------------------------
+VidexPrint
+        ldy #$00
+        sta (BASL),y
+        rts
+.endif
 
 ; -------------------------------------
 ; NewLn - move crsr to next line
@@ -1254,7 +1366,16 @@ DEL2    ; first col
         jsr Plot
         ldy CH
 
-DELe    tya
+DELe
+.ifdef videx
+        ldx CH          ; Load cursor position
+        ldy CV          ; ...
+        jsr VidexSetVec ; Set up pointers
+        jsr VidexPage   ; Page in correct page on Videx
+        lda #" "|$80    ; clear char
+        jsr VidexPrint  ; Print char in A
+.else
+        tya
         lsr          ; col DIV 2
         tay
         lda #" "|$80 ; clear char
@@ -1262,6 +1383,8 @@ DELe    tya
         bit $c055
 DEL3    sta (BASL),y
         bit $c054
+.endif
+
 DELee   jsr COn
         rts
 
@@ -1539,8 +1662,8 @@ EBL3    dey
 ; affects: A, Y
 ; return: screen line ptr in xVector
 ; -------------------------------------
-
-SLV     lda LineVecLo,x
+SLV
+        lda LineVecLo,x
         ldy LineVecHi,x
         sta xVector
         sty xVector+1
@@ -1607,6 +1730,25 @@ ExitChar
 ; -------------------------------------
 
 InitScr
+.ifdef videx
+        sta $cfff     ; Turn off any other $c800 shared ROM
+        sta $c300     ; Select slot 3 ROM to $c800 space
+        lda #$8c
+        jsr $c300     ; Initialize Videoterm and clear screen
+        ldy $c058     ; Set annunciator for Soft Switch
+        lda $6fb      ; Start address from screen hole (for slot 3)
+        lsr           ; To compute MSbyte, shift right four times
+        lsr           ; ..
+        lsr           ; ..
+        lsr           ; ..
+        sta videxstart
+        lda $6fb      ; Start address from screen hole (for slot 3)
+        asl           ; To compute LSbyte, shift left four times
+        asl           ; ..
+        asl           ; ..
+        asl           ; ..
+        sta videxstart+1
+.else
         ; --- turn on 80 col ---
         jsr $c300
         ; --- limit SET80COL-HISCR to text ---
@@ -1624,6 +1766,7 @@ IS1     txa
         ldx #$00
         ldy #$00
         jsr Plot
+.endif
 
         rts
 
