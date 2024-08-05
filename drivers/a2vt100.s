@@ -1053,6 +1053,7 @@ CO2     pla         ; restore registers
         rts
 .else
 COff
+; TODO - write me
         rts
 .endif
 
@@ -1094,6 +1095,7 @@ COn4    pla
         rts
 .else
 COn
+; TODO - write me
         rts
 .endif
 
@@ -1243,8 +1245,8 @@ VidexSetVec
         lda videxstart+1
         sta xVector+1
         cpy #$00
-        beq VP2         ; Row zero -> skip over loop
-VP1     lda xVector     ; row * 80 -> xVector (double prec)
+        beq VSV2        ; Row zero -> skip over loop
+VSV1    lda xVector     ; row * 80 -> xVector (double prec)
         clc
         adc #80
         sta xVector
@@ -1252,8 +1254,8 @@ VP1     lda xVector     ; row * 80 -> xVector (double prec)
         adc #00
         sta xVector+1
         dey
-        bne VP1
-VP2     lda xVector     ; Add col -> xVector
+        bne VSV1
+VSV2    lda xVector     ; Add col -> xVector
         clc
         adc VSVTmp
         sta xVector
@@ -1267,16 +1269,14 @@ VP2     lda xVector     ; Add col -> xVector
         asl             ; Multiply by 4
         asl             ; ..
         tax             ; Will return page*4 in X
-        beq VP4         ; Page zero -> skip over loop
-VP3     lda xVector+1   ; MSB
+        beq VSV4        ; Page zero -> skip over loop
+VSV3    lda xVector+1   ; MSB
         sec
         sbc #$02        ; Subtract 2 from MSB -> sub 512 from value
         sta xVector+1
         dey
-        bne VP3
-VP4     lda xVector+1
-        clc             ; Add $CC to MSbyte to make address
-        adc #$cc
+        bne VSV3
+VSV4    lda xVector+1
         sta BASH
         rts
 
@@ -1298,8 +1298,13 @@ VidexPage
 ; Affects: Y
 ; -------------------------------------
 VidexPrint
-        ldy #$00
-        sta (BASL),y
+        ldy BASH
+        bne VP1
+        ldy BASL
+        sta $cc00,y
+        rts
+VP1     ldy BASL
+        sta $cd00,y
         rts
 .endif
 
