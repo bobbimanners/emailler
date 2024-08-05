@@ -138,9 +138,6 @@ sCrsrChar .res 1
 ; --- buffer for addDecDig ---
 mul10buf .res 1
 
-; --- Videx start offset (2 bytes) --
-videxstart .res 2
-
 ; *************************************
 ; *
 ; * Code
@@ -1239,25 +1236,29 @@ PCend   pla         ; restore registers
 ; uses: xVector
 ; -------------------------------------
 VidexSetVec
-        stx VSVTmp      ; Store row for later
-        lda videxstart  ; videxstart -> xVector
-        sta xVector
-        lda videxstart+1
-        sta xVector+1
-        cpy #$00
-        beq VSV2        ; Row zero -> skip over loop
-VSV1    lda xVector     ; row * 80 -> xVector (double prec)
-        clc
-        adc #80
-        sta xVector
-        lda xVector+1
-        adc #00
-        sta xVector+1
-        dey
-        bne VSV1
-VSV2    lda xVector     ; Add col -> xVector
-        clc
-        adc VSVTmp
+        tya             ; Row -> A
+        sta xVector     ; Temporary
+        asl             ; Multiply by 5
+        asl             ; ..
+        clc             ; ..
+        adc xVector     ; A = row * 5
+        adc $6fb        ; Add start address
+        pha             ; Save for later
+        lsr             ; Mult*16 - for MSbyte
+        lsr             ; ..
+        lsr             ; ..
+        lsr             ; ..
+        sta xVector+1   ; Store MSByte
+        pla             ; Recover row * 5 + start
+        asl             ; Mult*15 - for LSbyte
+        asl             ; ..
+        asl             ; ..
+        asl             ; ..
+        sta xVector     ; Store LSByte
+        
+VSV2    clc
+        txa             ; Column -> A
+        adc xVector
         sta xVector
         sta BASL
         lda xVector+1
@@ -1764,18 +1765,6 @@ InitScr
         lda #$8c
         jsr $c300     ; Initialize Videoterm and clear screen
         ldy $c058     ; Set annunciator for Soft Switch
-        lda $6fb      ; Start address from screen hole (for slot 3)
-        asl           ; To compute LSbyte, shift left four times
-        asl           ; ..
-        asl           ; ..
-        asl           ; ..
-        sta videxstart
-        lda $6fb      ; Start address from screen hole (for slot 3)
-        lsr           ; To compute MSbyte, shift right four times
-        lsr           ; ..
-        lsr           ; ..
-        lsr           ; ..
-        sta videxstart+1
 .else
         ; --- turn on 80 col ---
         jsr $c300
