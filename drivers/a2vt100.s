@@ -1250,38 +1250,28 @@ VidexSetVec
         lsr             ; ..
         sta xVector+1   ; Store MSByte
         pla             ; Recover row * 5 + start
-        asl             ; Mult*15 - for LSbyte
+        asl             ; Mult*16 - for LSbyte
         asl             ; ..
         asl             ; ..
         asl             ; ..
         sta xVector     ; Store LSByte
         
-VSV2    clc
+        clc
         txa             ; Column -> A
         adc xVector
         sta xVector
-        sta BASL
+        sta BASL        ; Store LSByte
         lda xVector+1
-        adc #00
-        sta xVector+1   ; Now xVector has start + row * 80 + col
-        lsr             ; Discard LSbit of MSbyte
-        and #$03        ; Mask to get bits 9,10
-        tay             ; Videx page 0,1,2,3
-        asl             ; Multiply by 4
-        asl             ; ..
+        adc #00         ; Now xVector has start + row * 80 + col
+        pha
+        and #$06        ; Mask to get bits 9,10
+        asl             ; Multiply by 2
         tax             ; Will return page*4 in X
-        beq VSV4        ; Page zero -> skip over loop
-VSV3    lda xVector+1   ; MSB
-        sec
-        sbc #$02        ; Subtract 2 from MSB -> sub 512 from value
+        pla             ; Recover MSByte
+        and #$01        ; Mask out all except LSbit
         sta xVector+1
-        dey
-        bne VSV3
-VSV4    lda xVector+1
-        sta BASH
+        sta BASH        ; Store MSByte
         rts
-
-VSVTmp  .res 1
 
 ; -------------------------------------
 ; VidexPage - Page in the 512 byte page videxpage
