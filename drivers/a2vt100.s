@@ -138,9 +138,6 @@ sCrsrChar .res 1
 ; --- buffer for addDecDig ---
 mul10buf .res 1
 
-; --- Videx page (0,1,2,3) ---
-videxpage  .res 1
-
 ; --- Videx start offset (2 bytes) --
 videxstart .res 2
 
@@ -1034,6 +1031,7 @@ HelpStr ;".........1.........2.........3.........4.........5.........6.........7
 ; After movement COn has to be called.
 ; -------------------------------------
 
+.ifndef videx
 COff    pha            ; save registers
         tya
         pha
@@ -1053,6 +1051,10 @@ CO2     pla         ; restore registers
         tay
         pla
         rts
+.else
+COff
+        rts
+.endif
 
 ; -------------------------------------
 ; COn - switch crsr on
@@ -1062,6 +1064,7 @@ CO2     pla         ; restore registers
 ; opposite of COff
 ; -------------------------------------
 
+.ifndef videx
 COn     pha
         tya
         pha
@@ -1089,15 +1092,19 @@ COn4    pla
         tay
         pla
         rts
+.else
+COn
+        rts
+.endif
 
 ; -------------------------------------
 ; CPlot - move cursor
 ;
-; params: coumn in Y
+; params: column in Y
 ;         line in X
 ; affects: A, X, Y
 ;
-; The crsr ist turned off during
+; The crsr is turned off during
 ; operation (COff - COn)
 ; -------------------------------------
 
@@ -1109,7 +1116,7 @@ CPlot   jsr COff
 ; -------------------------------------
 ; Plot - move cursor
 ;
-; params: coumn in Y
+; params: column in Y
 ;         line in X
 ; affects: A, X, Y
 ; -------------------------------------
@@ -1132,7 +1139,7 @@ Plot    stx CV      ; set row
 ; affects: A
 ; uses: xVector
 ;
-; The crsr ist turned off during
+; The crsr is turned off during
 ; operation (COff - COn)
 ; -------------------------------------
 
@@ -1221,11 +1228,11 @@ PCend   pla         ; restore registers
 
 .ifdef videx
 ; -------------------------------------
-; VidexSetVec - set BASL/BASH and videxpage
+; VidexSetVec - set BASL/BASH and return Videxpage * 4 in X
 ;
 ; Params: X - column
 ;         Y - row
-; Returns: A - Videx page (0 to 3)
+; Returns: X - Videx page (0 to 3) multiplied by 4
 ; affects: A,X,Y
 ; uses: xVector
 ; -------------------------------------
@@ -1253,12 +1260,13 @@ VP2     lda xVector     ; Add col -> xVector
         sta BASL
         lda xVector+1
         adc #00
-        sta xVector+1   ; Now xVector has row * 80 + col
+        sta xVector+1   ; Now xVector has start + row * 80 + col
         lsr             ; Discard LSbit of MSbyte
         and #$03        ; Mask to get bits 9,10
-        sta videxpage   ; 512 byte page 0,1,2 or 3
-        tay
-        tax             ; Stash page for return
+        tay             ; Videx page 0,1,2,3
+        asl             ; Multiply by 4
+        asl             ; ..
+        tax             ; Will return page*4 in X
         beq VP4         ; Page zero -> skip over loop
 VP3     lda xVector+1   ; MSB
         sec
@@ -1266,10 +1274,10 @@ VP3     lda xVector+1   ; MSB
         sta xVector+1
         dey
         bne VP3
-VP4     clc             ; Add $CC to MSbyte to make address
+VP4     lda xVector+1
+        clc             ; Add $CC to MSbyte to make address
         adc #$cc
         sta BASH
-        txa             ; Return page in A
         rts
 
 VSVTmp  .res 1
@@ -1277,24 +1285,11 @@ VSVTmp  .res 1
 ; -------------------------------------
 ; VidexPage - Page in the 512 byte page videxpage
 ;
-; Params: A - page to switch to (0 to 3)
-; affects: A
+; Params: X - page to switch to (0 to 3) multiplied by 4
 ; -------------------------------------
 VidexPage
-        clv             ; Prepare for 'branch always' below
-        bne VP5
-        lda $c0b0       ; Page 0
-        bvc VP8         ; Branch always
-VP5     cmp #$01
-        bne VP6
-        lda $c0b4       ; Page 1
-        bvc VP8         ; Branch always
-VP6     cmp #$02
-        bne VP7
-        lda $c0b8       ; Page 2
-        bvc VP8         ; Branch always
-VP7     lda $c0bc       ; Page 3
-VP8     rts
+        lda $c0b0,x
+        rts
 
 ; -------------------------------------
 ; VidexPrint - Print character on screen
@@ -1425,6 +1420,7 @@ CUScrl  jsr COff
 ; uses: xVector, zVector
 ; -------------------------------------
 
+.ifndef videx
 UScrl   ldx SRS     ; get first line
         ; --- scroll one line ---
 US1     ; -- new line: --
@@ -1457,6 +1453,10 @@ US3     lda (xVector),y ; copy char
         jsr ErLn_       ; del last line
 
         rts
+.else
+UScrl
+        rts
+.endif
 
 ; -------------------------------------
 ; CDScrl - scroll down scrollregion
@@ -1479,6 +1479,7 @@ CDScrl  jsr COff
 ; uses: xVector, zVector
 ; -------------------------------------
 
+.ifndef videx
 DScrl   ldx SRE     ; get last line
         ; --- scroll one line ---
 DS1     ; -- new line: --
@@ -1511,6 +1512,10 @@ DS3     lda (xVector),y ; copy char
         jsr ErLn_       ; del first line
 
         rts
+.else
+DScrl
+        rts
+.endif
 
 ; -------------------------------------
 ; CPrnStrNL - print string to sceen,
@@ -1571,6 +1576,7 @@ L2      jsr COn
 ; ErLn_ needs line ptr in xVector
 ; -------------------------------------
 
+.ifndef videx
 ErLn    jsr SLV ; line start in xVector
 
         ; -- erase even col chars --
@@ -1589,6 +1595,10 @@ EL2     sta (xVector),y ; clear char
         bpl EL2
 
         rts
+.else
+ErLn
+        rts
+.endif
 
 ; -------------------------------------
 ; ErEnLn - erase to end of line
@@ -1598,6 +1608,7 @@ EL2     sta (xVector),y ; clear char
 ; erase screen line from crsr to end of line
 ; -------------------------------------
 
+.ifndef videx
 ErEnLn  jsr COff
         ; -- erase even col chars --
         bit $c055
@@ -1622,6 +1633,10 @@ EEL3    sta (BASL),y  ; clear char
 
         jsr COn
         rts
+.else
+ErEnLn
+        rts
+.endif
 
 ; -------------------------------------
 ; ErBeLn - erase from begin of line
@@ -1631,6 +1646,7 @@ EEL3    sta (BASL),y  ; clear char
 ; erase screen line up to crsr
 ; -------------------------------------
 
+.ifndef videx
 ErBeLn  jsr COff
         ; -- erase even col chars --
         bit $c055
@@ -1653,6 +1669,10 @@ EBL3    dey
 
         jsr COn
         rts
+.else
+ErBeLn
+        rts
+.endif
 
 ; -------------------------------------
 ; SLV - set line vector
@@ -1662,6 +1682,7 @@ EBL3    dey
 ; affects: A, Y
 ; return: screen line ptr in xVector
 ; -------------------------------------
+.ifndef videx
 SLV
         lda LineVecLo,x
         ldy LineVecHi,x
@@ -1677,6 +1698,8 @@ LineVecHi
 .byt $04, $04, $05, $05, $06, $06, $07, $07
 .byt $04, $04, $05, $05, $06, $06, $07, $07
 .byt $04, $04, $05, $05, $06, $06, $07, $07
+
+.endif
 
 ; *************************************
 ; *
@@ -1737,16 +1760,16 @@ InitScr
         jsr $c300     ; Initialize Videoterm and clear screen
         ldy $c058     ; Set annunciator for Soft Switch
         lda $6fb      ; Start address from screen hole (for slot 3)
-        lsr           ; To compute MSbyte, shift right four times
-        lsr           ; ..
-        lsr           ; ..
-        lsr           ; ..
-        sta videxstart
-        lda $6fb      ; Start address from screen hole (for slot 3)
         asl           ; To compute LSbyte, shift left four times
         asl           ; ..
         asl           ; ..
         asl           ; ..
+        sta videxstart
+        lda $6fb      ; Start address from screen hole (for slot 3)
+        lsr           ; To compute MSbyte, shift right four times
+        lsr           ; ..
+        lsr           ; ..
+        lsr           ; ..
         sta videxstart+1
 .else
         ; --- turn on 80 col ---
