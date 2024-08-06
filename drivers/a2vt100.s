@@ -1144,17 +1144,19 @@ Plot    stx CV      ; set row
         ldy xVector+1
         stx BASL
         sty BASH
-.else
-        lda #$1e    ; ASCII code for cursor position command
-        jsr COUT
-        tya         ; Column
-        clc
-        adc #$20    ; Add 32
-        jsr COUT
-        txa         ; Row
-        clc
-        adc #$20    ; Add 32
-        jsr COUT
+;.else
+;        stx zVector
+;        sty zVector+1
+;        lda #$1e    ; ASCII code for cursor position command
+;        jsr COUT
+;        lda zVector
+;        clc
+;        adc #$20    ; Add 32
+;        jsr COUT
+;        lda zVector+1
+;        clc
+;        adc #$20    ; Add 32
+;        jsr COUT
 .endif
         rts
 
