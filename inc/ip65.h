@@ -7,7 +7,7 @@
 // Ethernet driver initialization parameter values
 //
 #if defined(__APPLE2__)
-#define ETH_INIT_DEFAULT 3  // Apple II slot number
+#define ETH_INIT_DEFAULT 5  // Apple II slot number
 #else
 #define ETH_INIT_DEFAULT 0  // Unused
 #endif

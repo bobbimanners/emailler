@@ -1622,7 +1622,20 @@ EL2     sta (xVector),y ; clear char
         rts
 .else
 ErLn
-        ; TODO Write me
+        txa             ; Shuffle row number into Y
+        tay
+        ldx #$00        ; Start column
+EL1     txa             ; Preserve X
+        pha
+        jsr VidexSetVec ; Set up pointers
+        jsr VidexPage   ; Page in correct page on Videx
+        lda #" "|$80    ; clear char
+        jsr VidexPrint  ; Print char in A
+        pla             ; Restore X
+        tax
+        inx
+        cpx #80
+        bne EL1
         rts
 .endif
 
@@ -1661,7 +1674,20 @@ EEL3    sta (BASL),y  ; clear char
         rts
 .else
 ErEnLn
-        ; TODO Write me
+        txa             ; Shuffle row number into Y
+        tay
+        ldx CH          ; Start column
+EEL1    txa             ; Preserve X
+        pha
+        jsr VidexSetVec ; Set up pointers
+        jsr VidexPage   ; Page in correct page on Videx
+        lda #" "|$80    ; clear char
+        jsr VidexPrint  ; Print char in A
+        pla             ; Restore X
+        tax
+        inx
+        cpx #80
+        bne EEL1
         rts
 .endif
 
@@ -1698,7 +1724,20 @@ EBL3    dey
         rts
 .else
 ErBeLn
-        ; TODO Write me
+        txa             ; Shuffle row number into Y
+        tay
+        ldx #$00        ; Start column
+EBL1    txa             ; Preserve X
+        pha
+        jsr VidexSetVec ; Set up pointers
+        jsr VidexPage   ; Page in correct page on Videx
+        lda #" "|$80    ; clear char
+        jsr VidexPrint  ; Print char in A
+        pla             ; Restore X
+        tax
+        inx
+        cpx CH
+        bne EBL1
         rts
 .endif
 
