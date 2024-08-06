@@ -1223,7 +1223,7 @@ PC2
         jsr VidexSetVec ; Set up pointers
         jsr VidexPage   ; Page in correct page on Videx
         pla             ; Recover character to print
-        jsr VidexPrint  ; Print char in A
+        jsr VidexPut    ; Print char in A
 .else
         tax             ; save char
         lda CH          ; get crsr col
@@ -1310,12 +1310,12 @@ VidexPage
         rts
 
 ; -------------------------------------
-; VidexPrint - Print character on screen
+; VidexPut - Print character on screen
 ;
 ; Params: A - character to print
 ; Affects: Y
 ; -------------------------------------
-VidexPrint
+VidexPut
         ldy BASH     ; BASH is either $00 or $01
         bne VP1      ; It's $01
         ldy BASL     ; Offset in first half of 512 byte page
@@ -1323,6 +1323,22 @@ VidexPrint
         rts
 VP1     ldy BASL     ; Offset in second half of 512 byte page
         sta $cd00,y
+        rts
+
+; -------------------------------------
+; VidexGet - Read character on screen
+;
+; Returns: A - character pointed to by BASH/BASL
+; Affects: Y
+; -------------------------------------
+VidexGet
+        ldy BASH     ; BASH is either $00 or $01
+        bne VG1      ; It's $01
+        ldy BASL     ; Offset in first half of 512 byte page
+        lda $cc00,y
+        rts
+VG1     ldy BASL     ; Offset in second half of 512 byte page
+        lda $cd00,y
         rts
 .endif
 
@@ -1391,7 +1407,7 @@ DELe
         jsr VidexSetVec ; Set up pointers
         jsr VidexPage   ; Page in correct page on Videx
         lda #" "|$80    ; clear char
-        jsr VidexPrint  ; Print char in A
+        jsr VidexPut    ; Print char in A
 .else
         tya
         lsr          ; col DIV 2
@@ -1477,8 +1493,30 @@ US3     lda (xVector),y ; copy char
 
         rts
 .else
-UScrl
-        ; TODO - Write me
+UScrl   ldy SRS         ; Get first line
+US1     ldx #$00        ; First column
+US2     stx zVector     ; Use zVector as temporary for x
+        sty zVector+1   ; Use zVector+1 as temporary for y
+        iny             ; Source is line below
+        jsr VidexSetVec ; Set up pointers
+        jsr VidexPage   ; Page in correct page on Videx
+        jsr VidexGet    ; Get source char
+        pha             ; Stash char for later
+        ldx zVector     ; Recover X
+        ldy zVector+1   ; Recover Y
+        jsr VidexSetVec ; Set up pointers
+        jsr VidexPage   ; Page in correct page on Videx
+        pla             ; Recover char
+        jsr VidexPut    ; Copy char to screen
+        ldx zVector     ; Recover X
+        ldy zVector+1   ; Recover Y
+        inx             ; Next col
+        cpx #80         ; Last col?
+        bne US2
+        iny             ; Next line
+        cpy SRE         ; Last line?
+        bne US1         ; Nope, go again
+        jsr ErLn_       ; Delete last line
         rts
 .endif
 
@@ -1624,15 +1662,15 @@ EL2     sta (xVector),y ; clear char
 ErLn
         txa             ; Shuffle row number into Y
         tay
-        ldx #$00        ; Start column
-EL1     txa             ; Preserve X
-        pha
+ErLn_   ldx #$00        ; Start column
+EL1     stx zVector     ; Use zVector as temporary for x
+        sty zVector+1   ; Use zVector+1 as temporary for y
         jsr VidexSetVec ; Set up pointers
         jsr VidexPage   ; Page in correct page on Videx
         lda #" "|$80    ; clear char
-        jsr VidexPrint  ; Print char in A
-        pla             ; Restore X
-        tax
+        jsr VidexPut    ; Print char in A
+        ldx zVector     ; Restore X
+        ldy zVector+1   ; Restore Y
         inx
         cpx #80
         bne EL1
@@ -1677,14 +1715,14 @@ ErEnLn
         txa             ; Shuffle row number into Y
         tay
         ldx CH          ; Start column
-EEL1    txa             ; Preserve X
-        pha
+EEL1    stx zVector     ; Use zVector as temporary for x
+        sty zVector+1   ; Use zVector+1 as temporary for y
         jsr VidexSetVec ; Set up pointers
         jsr VidexPage   ; Page in correct page on Videx
         lda #" "|$80    ; clear char
-        jsr VidexPrint  ; Print char in A
-        pla             ; Restore X
-        tax
+        jsr VidexPut    ; Print char in A
+        ldx zVector     ; Restore X
+        ldy zVector+1   ; Restore Y
         inx
         cpx #80
         bne EEL1
@@ -1727,14 +1765,14 @@ ErBeLn
         txa             ; Shuffle row number into Y
         tay
         ldx #$00        ; Start column
-EBL1    txa             ; Preserve X
-        pha
+EBL1    stx zVector     ; Use zVector as temporary for x
+        sty zVector+1   ; Use zVector+1 as temporary for y
         jsr VidexSetVec ; Set up pointers
         jsr VidexPage   ; Page in correct page on Videx
         lda #" "|$80    ; clear char
-        jsr VidexPrint  ; Print char in A
-        pla             ; Restore X
-        tax
+        jsr VidexPut    ; Print char in A
+        ldx zVector     ; Restore X
+        ldy zVector+1   ; Restore Y
         inx
         cpx CH
         bne EBL1
