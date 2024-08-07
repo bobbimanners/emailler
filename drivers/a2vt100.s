@@ -1189,6 +1189,7 @@ PrnChr  sta xVector ; save char
         pha
         tya
         pha
+
         lda xVector ; restore char
 
         ; -- $80-$ff -- non-ASCII
@@ -1210,7 +1211,10 @@ PCrvs   ldx INVFLG  ; normal:$ff, reverse:$3f
         tax
         lda rtsc,x  ; reverse to ScreenCode
         jmp PCput
-PC1     ora #$80    ; normal to ScreenCode
+PC1
+.ifndef videx
+        ora #$80    ; normal to ScreenCode
+.endif
 
 PCput   ldx lbPending   ; need new line?
         beq PC2         ; no -> skip
@@ -1865,7 +1869,6 @@ InitScr
         sta $c300     ; Select slot 3 ROM to $c800 space
         lda #$8c
         jsr $c300     ; Initialize Videoterm and clear screen
-        ldy $c058     ; Set annunciator for Soft Switch
 .else
         ; --- turn on 80 col ---
         jsr $c300
@@ -1957,10 +1960,18 @@ ltsc;_0  _1  _2  _3  _4  _5  _6  _7  _8  _9  _a  _b  _c  _d  _e  _f
 ; --- normal -------------------------------------------------------
 ;     ◆   ▒   ␉   ␌   ␍   ␊   °   ±   ␤   ␋   ┘   ┐   ┌   └   ┼   ⎺
 ;     ◆   ▒  ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' '  ⎸  ' '  _   ⎿   ⎿   ⎺
+.ifndef videx
 .byt $5b,$56,$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0,$5f,$a0,$9f,$54,$54,$4c  ; 6_
+.else
+.byt $5b,$56,$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0,$19,$1c,$16,$13,$54,$4c  ; 6_
+.endif
 ;     ⎻   ─   ⎼   ⎽   ├   ┤   ┴   ┬   │   ≤   ≥   π   ≠   £   ·  ' '
 ;     ─   _   _   _   ⎿   ⎸   ⎿   _   ⎸  ' ' ' ' ' ' ' ' ' ' ' ' ' '
+.ifndef videx
 .byt $53,$9f,$9f,$9f,$54,$5f,$54,$9f,$5f,$a0,$a0,$a0,$a0,$a0,$a0,$a0  ; 7_
+.else
+.byt $53,$1a,$9f,$9f,$54,$5f,$54,$9f,$15,$a0,$a0,$a0,$a0,$a0,$a0,$a0  ; 7_
+.endif
 
 ; -------------------------------------
 ; table keyboard to ASCII
