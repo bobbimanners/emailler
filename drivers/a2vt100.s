@@ -1692,7 +1692,7 @@ EL1     stx zVector     ; Use zVector as temporary for x
         sty zVector+1   ; Use zVector+1 as temporary for y
         jsr VidexSetVec ; Set up pointers
         jsr VidexPage   ; Page in correct page on Videx
-        lda #" "|$80    ; clear char
+        lda #" "        ; clear char
         jsr VidexPut    ; Print char in A
         ldx zVector     ; Restore X
         ldy zVector+1   ; Restore Y
@@ -1744,7 +1744,7 @@ EEL1    stx zVector     ; Use zVector as temporary for x
         sty zVector+1   ; Use zVector+1 as temporary for y
         jsr VidexSetVec ; Set up pointers
         jsr VidexPage   ; Page in correct page on Videx
-        lda #" "|$80    ; clear char
+        lda #" "        ; clear char
         jsr VidexPut    ; Print char in A
         ldx zVector     ; Restore X
         ldy zVector+1   ; Restore Y
@@ -1794,7 +1794,7 @@ EBL1    stx zVector     ; Use zVector as temporary for x
         sty zVector+1   ; Use zVector+1 as temporary for y
         jsr VidexSetVec ; Set up pointers
         jsr VidexPage   ; Page in correct page on Videx
-        lda #" "|$80    ; clear char
+        lda #" "        ; clear char
         jsr VidexPut    ; Print char in A
         ldx zVector     ; Restore X
         ldy zVector+1   ; Restore Y
