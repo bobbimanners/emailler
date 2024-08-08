@@ -988,6 +988,7 @@ C3      cmp #$68    ; h
         jsr putRS   ; send h
         rts
 
+.ifndef videx
 ; ---  Open-Apple q ---
 ; quit CaTer
 C4      cmp #$71    ; q
@@ -996,6 +997,16 @@ C4      cmp #$71    ; q
         bmi Cquit   ; pressed
         jsr putRS   ; send q
         rts
+.else
+; ---  Shift-Ctrl-q ---
+; quit CaTer
+C4      cmp #$11    ; ^q
+        bne C5
+        bit $c063   ; PB3 shift key
+        bpl Cquit   ; pressed
+        jsr putRS   ; send ^q
+        rts
+.endif
 
         ; quit CaTer
 Cquit   jsr telnet_close
@@ -1155,18 +1166,16 @@ Plot    stx CV      ; set row
         stx BASL
         sty BASH
 .else
-;        stx zVector
-;        sty zVector+1
-;        lda #$1e    ; ASCII code for cursor position command
-;        jsr COUT
-;        lda zVector
-;        clc
-;        adc #$20    ; Add 32
-;        jsr COUT
-;        lda zVector+1
-;        clc
-;        adc #$20    ; Add 32
-;        jsr COUT
+        lda #$1e    ; ASCII code for cursor position command
+        jsr COUT
+        lda CH
+        clc
+        adc #$20    ; Add 32
+        jsr COUT
+        lda CV
+        clc
+        adc #$20    ; Add 32
+        jsr COUT
 .endif
         rts
 
@@ -2000,12 +2009,24 @@ ltsc;_0  _1  _2  _3  _4  _5  _6  _7  _8  _9  _a  _b  _c  _d  _e  _f
 kta ;_0  _1  _2  _3  _4  _5  _6  _7  _8  _9  _a  _b  _c  _d  _e  _f
 
 ; --- Control chars ------------------------------------------------
+.ifndef videx
 ;                                    {←}     {↓} {↑}
 ;    ^@  ^A  ^B  ^C  ^D  ^E  ^F  ^G  ^H  ^I  ^J  ^K  ^L  ^M  ^N  ^O
 .byt $00,$01,$02,$03,$04,$05,$06,$07,$fe,$09,$fe,$fe,$0c,$0d,$0e,$0f  ; 0_
+.else
+;                                    {←}     {↓} {↑}
+;    ^@  ^A  ^B  ^C  ^D  ^E  ^F  ^G  ^H  ^I  ^J  ^K  ^L  ^M  ^N  ^O
+.byt $00,$01,$02,$03,$04,$05,$06,$07,$fe,$09,$fe,$fe,$0c,$0d,$0e,$0f  ; 0_
+.endif
+.ifndef videx
 ;                        {→}
 ;    ^P  ^Q  ^R  ^S  ^T  ^U  ^V  ^W  ^X  ^Y  ^Z  ^[  ^\  ^]  ^^  ^_
 .byt $10,$11,$12,$13,$14,$fe,$16,$17,$18,$19,$1a,$1b,$1c,$1d,$1e,$1f  ; 1_
+.else
+;                        {→}
+;    ^P  ^Q  ^R  ^S  ^T  ^U  ^V  ^W  ^X  ^Y  ^Z  ^[  ^\  ^]  ^^  ^_
+.byt $10,$fe,$12,$13,$14,$fe,$16,$17,$18,$19,$1a,$1b,$1c,$1d,$1e,$1f  ; 1_
+.endif
 
 ; --- special chars ------------------------------------------------
 ;    ' '  !   "   #   $   %   &   '   (   )   *   +   ,   -   .   /
