@@ -885,6 +885,16 @@ aDDigE  rts
 ; -------------------------------------
 
 ProcOut
+.ifdef videx
+        cpy #40     ; Key<40 ..
+        bcc PO1     ; .. ignore shift key
+        bit $c063   ; Read PB3 "shift mod"
+        bpl PO1     ; Shifted
+        tya
+        ora #$20    ; Set bit 6 for unshifted chars
+        tay
+PO1     
+.endif
         lda kta,y   ; keyboard to ASCII
         cmp #$ff
         beq POrts   ; ignore key
@@ -1144,7 +1154,7 @@ Plot    stx CV      ; set row
         ldy xVector+1
         stx BASL
         sty BASH
-;.else
+.else
 ;        stx zVector
 ;        sty zVector+1
 ;        lda #$1e    ; ASCII code for cursor position command
@@ -2004,13 +2014,33 @@ kta ;_0  _1  _2  _3  _4  _5  _6  _7  _8  _9  _a  _b  _c  _d  _e  _f
 .byt $30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$3a,$3b,$3c,$3d,$3e,$3f  ; 3_
 
 ; --- capital letters ----------------------------------------------
+.ifndef videx
 ;     @   A   B   C   D   E   F   G   H   I   J   K   L   M   N   O
 .byt $40,$41,$42,$43,$44,$45,$46,$47,$48,$49,$4a,$4b,$4c,$4d,$4e,$4f  ; 4_
+.else
+;     @   A   B   C   D   E   F   G   H   I   J   K   L   M   N   O
+.byt $50,$41,$42,$43,$44,$45,$46,$47,$48,$49,$4a,$4b,$4c,$4d,$4e,$4f  ; 4_
+.endif
+.ifndef videx
 ;     P   Q   R   S   T   U   V   W   X   Y   Z   [   \   ]   ^   _
 .byt $50,$51,$52,$53,$54,$55,$56,$57,$58,$59,$5a,$5b,$5c,$5d,$5e,$5f  ; 5_
+.else
+;     P   Q   R   S   T   U   V   W   X   Y   Z   [   \   ]   ^   _
+.byt $50,$51,$52,$53,$54,$55,$56,$57,$58,$59,$5a,$5b,$5c,$4d,$4e,$5f  ; 5_
+.endif
 
 ; --- lower case letters -------------------------------------------
+.ifndef videx
 ;     `   a   b   c   d   e   f   g   h   i   j   k   l   m   n   o
 .byt $60,$61,$62,$63,$64,$65,$66,$67,$fe,$69,$6a,$6b,$6c,$6d,$6e,$6f  ; 6_
+.else
+;     `   a   b   c   d   e   f   g   h   i   j   k   l   m   n   o
+.byt $60,$61,$62,$63,$64,$65,$66,$67,$68,$69,$6a,$6b,$6c,$6d,$6e,$6f  ; 6_
+.endif
+.ifndef videx
 ;     p   q   r   s   t   u   v   w   x   y   z   {   |   }   ~  DEL
 .byt $70,$fe,$72,$73,$74,$75,$76,$77,$78,$79,$7a,$7b,$7c,$7d,$7e,$7f  ; 7_
+.else
+;     p   q   r   s   t   u   v   w   x   y   z   {   |   }   ~  DEL
+.byt $70,$71,$72,$73,$74,$75,$76,$77,$78,$79,$7a,$7b,$7c,$7d,$7e,$7f  ; 7_
+.endif
