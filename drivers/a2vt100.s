@@ -1304,7 +1304,7 @@ Plot
         ldx CH      ; Swap for call to VidexSetVec
         ldy CV
         jsr VidexSetVec
-        jsr VidexCurs
+        jsr VidexMvCurs
 .endif
         rts
 
@@ -1378,6 +1378,12 @@ PC2
         jsr VidexPage   ; Page in correct page on Videx
         pla             ; Recover character to print
         jsr VidexPut    ; Print char in A
+
+        inc cVector     ; Increment cursor address
+        bne PC2a
+        inc cVector+1
+PC2a    jsr VidexMvCurs ; Move cursor
+
 .else
         tax             ; save char
         lda CH          ; get crsr col
@@ -1461,12 +1467,12 @@ VidexSetVec
         rts
 
 ; -------------------------------------
-; VidexCurs - set cursor position
+; VidexMvCurs - set hardware cursor position
 ;       
 ; Params: Expects 14 bit cursor address in cVector, cVector+1
 ; Affects: A
 ; -------------------------------------
-VidexCurs
+VidexMvCurs
         lda #14         ; Register 14 is curs high byte
         sta $c0b0
         lda cVector+1   ; Store high byte
