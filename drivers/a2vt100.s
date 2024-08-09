@@ -900,7 +900,7 @@ PO1
         beq POrts   ; ignore key
         cmp #$fe
         beq CmdKey  ; command key
-        jsr putRS
+PO2     jsr putRS
 POrts   rts
 
 ; -------------------------------------
@@ -912,6 +912,8 @@ ScrsrU .byt $1b, $4f, $41, $00 ; esc O A
 ScrsrD .byt $1b, $4f, $42, $00 ; esc O B
 ScrsrR .byt $1b, $4f, $43, $00 ; esc O C
 ScrsrL .byt $1b, $4f, $44, $00 ; esc O D
+
+.ifndef videx
 
 CmdKey  tya         ; restore character
 
@@ -988,7 +990,6 @@ C3      cmp #$68    ; h
         jsr putRS   ; send h
         rts
 
-.ifndef videx
 ; ---  Open-Apple q ---
 ; quit CaTer
 C4      cmp #$71    ; q
@@ -997,16 +998,6 @@ C4      cmp #$71    ; q
         bmi Cquit   ; pressed
         jsr putRS   ; send q
         rts
-.else
-; ---  Shift-Ctrl-q ---
-; quit CaTer
-C4      cmp #$11    ; ^q
-        bne C5
-        bit $c063   ; PB3 shift key
-        bpl Cquit   ; pressed
-        jsr putRS   ; send ^q
-        rts
-.endif
 
         ; quit CaTer
 Cquit   jsr telnet_close
@@ -1015,12 +1006,146 @@ Cquit   jsr telnet_close
 ; --- unknown character ---
 C5      rts
 
+.else
+
+;
+; Videx version of CmdKey follows ...
+;
+
+CmdKey  tya         ; restore character
+
+; --- crsr L ---
+; ---   ^H   ---
+; both events send char $08
+        cmp #$08
+        bne C0
+        bit BUTN0   ; Open-Apple key TODO
+        bpl crsrL   ; not pressed
+        jsr putRS   ; send ^H
+        rts
+
+        ; crsr L
+crsrL   ldx #<ScrsrL
+        ldy #>ScrsrL
+        jsr SendStr
+        rts
+
+; --- crsr D ---
+; ---   ^J   ---
+; both events send char $0a
+C0      cmp #$0a
+        bne C1
+        bit BUTN0   ; Open-Apple key TODO
+        bpl crsrD   ; not pressed
+        jsr putRS   ; send ^J
+        rts
+
+        ; crsr down is pressed
+crsrD   ldx #<ScrsrD
+        ldy #>ScrsrD
+        jsr SendStr
+        rts
+
+; --- crsr U ---
+; ---   ^K   ---
+; both events send char $0b
+C1      cmp #$0b
+        bne C2
+        bit BUTN0   ; Open-Apple key TODO
+        bpl crsrU   ; not pressed
+        jsr putRS   ; send ^K
+        rts
+
+        ; crsr up is pressed
+crsrU   ldx #<ScrsrU
+        ldy #>ScrsrU
+        jsr SendStr
+        rts
+
+; --- crsr R ---
+; ---   ^U   ---
+; both events send char $15
+C2      cmp #$15
+        bne C3
+        bit BUTN0   ; Open-Apple key TODO
+        bpl crsrR   ; not pressed
+        jsr putRS   ; send ^U
+        rts
+
+        ; crsr R
+crsrR   ldx #<ScrsrR
+        ldy #>ScrsrR
+        jsr SendStr
+        rts
+
+; ---  Shift-Ctrl-n ---
+C3      cmp #$1e    ; ^^
+        bne C4
+        bit $c063   ; PB3 shift key
+        bmi C3a     ; Not pressed
+        lda #$5e    ; ^
+        jsr putRS   ; Send it
+        rts
+C3a     jsr putRS   ; Send the ^n/^^
+        rts
+
+; ---  Shift-Ctrl-p ---
+C4      cmp #$00    ; ^@
+        bne C5
+        bit $c063   ; PB3 shift key
+        bmi C4a     ; Not pressed
+        lda #$40    ; @
+        jsr putRS   ; Send it
+        rts
+C4a     jsr putRS   ; Send the ^p/^p
+        rts
+
+; ---  Shift-Ctrl-i ---
+C5      cmp #$09    ; ^i
+        bne C6
+        bit $c063   ; PB3 shift key
+        bmi C5a     ; Not pressed
+        lda #$5b    ; [
+        jsr putRS   ; Send it
+        rts
+C5a     jsr putRS   ; Send the ^i
+        rts
+
+; ---  Shift-Ctrl-o ---
+C6      cmp #$0f    ; ^o
+        bne C7
+        bit $c063   ; PB3 shift key
+        bmi C6a     ; Not pressed
+        lda #$5d    ; ]
+        jsr putRS   ; Send it
+        rts
+C6a     jsr putRS   ; Send the ^o
+        rts
+
+; ---  Shift-Ctrl-q ---
+; quit CaTer
+C7      cmp #$11    ; ^q
+        bne C8
+        bit $c063   ; PB3 shift key
+        bpl Cquit   ; pressed
+        jsr putRS   ; send ^q
+        rts
+
+        ; quit CaTer
+Cquit   jsr telnet_close
+        rts
+
+; --- unknown character ---
+C8      rts
+.endif
+
 ; -------------------------------------
 ; Help - print help screen
 ;
 ; calledom outgoing data loop
 ; returns with rts
 ; -------------------------------------
+.ifndef videx
 Help    jsr CR      ; next screen line
         jsr LF
         ldx #<HelpStr
@@ -1033,6 +1158,7 @@ HelpStr ;".........1.........2.........3.........4.........5.........6.........7
 .asc     "OA-C-H  Send C-H                        OA-C-J  Send C-J                        "
 .asc     "OA-C-K  Send C-K                        OA-C-U  Send C-U"
 .byt $00
+.endif
 
 ; *************************************
 ; *
@@ -1051,7 +1177,10 @@ HelpStr ;".........1.........2.........3.........4.........5.........6.........7
 ; After movement COn has to be called.
 ; -------------------------------------
 
-COff    pha            ; save registers
+COff
+        rts ;; DEBUG
+
+        pha            ; save registers
         tya
         pha
 
@@ -1157,15 +1286,20 @@ CPlot   jsr COff
 ; affects: A, X, Y
 ; -------------------------------------
 
-Plot    stx CV      ; set row
-        sty CH      ; set col
+Plot
 .ifndef videx
+        stx CV      ; set row
+        sty CH      ; set col
         jsr SLV
         ldx xVector ; set screen line
         ldy xVector+1
         stx BASL
         sty BASH
 .else
+        txa         ; Preserve X & Y (COUT trashes CH/CV)
+        pha
+        tya
+        pha
         lda #$1e    ; ASCII code for cursor position command
         jsr COUT
         lda CH
@@ -1176,6 +1310,10 @@ Plot    stx CV      ; set row
         clc
         adc #$20    ; Add 32
         jsr COUT
+        pla         ; Update CH & CV from stored XY regs
+        sta CH
+        pla
+        sta CV
 .endif
         rts
 
@@ -1662,6 +1800,7 @@ L2      jsr COn
 ;
 ; For internal use:
 ; ErLn_ needs line ptr in xVector
+;          or line number in Y (in case of Videx)
 ; -------------------------------------
 
 .ifndef videx
@@ -1737,8 +1876,7 @@ EEL3    sta (BASL),y  ; clear char
         rts
 .else
 ErEnLn
-        txa             ; Shuffle row number into Y
-        tay
+        ldy CV          ; Start row
         ldx CH          ; Start column
 EEL1    stx zVector     ; Use zVector as temporary for x
         sty zVector+1   ; Use zVector+1 as temporary for y
@@ -1787,8 +1925,7 @@ EBL3    dey
         rts
 .else
 ErBeLn
-        txa             ; Shuffle row number into Y
-        tay
+        ldy CV          ; Start row
         ldx #$00        ; Start column
 EBL1    stx zVector     ; Use zVector as temporary for x
         sty zVector+1   ; Use zVector+1 as temporary for y
@@ -1888,6 +2025,9 @@ InitScr
         sta $c300     ; Select slot 3 ROM to $c800 space
         lda #$8c
         jsr $c300     ; Initialize Videoterm and clear screen
+        lda #$00
+        sta CV
+        sta CH
 .else
         ; --- turn on 80 col ---
         jsr $c300
@@ -2002,8 +2142,7 @@ ltsc;_0  _1  _2  _3  _4  _5  _6  _7  _8  _9  _a  _b  _c  _d  _e  _f
 ; line.
 ;
 ; ascii = $ff means ignore key
-; ascii = $fe means do something
-;             complicated (command key)
+; ascii = $fe means do something complicated (command key)
 ; -------------------------------------
 
 kta ;_0  _1  _2  _3  _4  _5  _6  _7  _8  _9  _a  _b  _c  _d  _e  _f
@@ -2016,7 +2155,7 @@ kta ;_0  _1  _2  _3  _4  _5  _6  _7  _8  _9  _a  _b  _c  _d  _e  _f
 .else
 ;                                    {←}     {↓} {↑}
 ;    ^@  ^A  ^B  ^C  ^D  ^E  ^F  ^G  ^H  ^I  ^J  ^K  ^L  ^M  ^N  ^O
-.byt $00,$01,$02,$03,$04,$05,$06,$07,$fe,$09,$fe,$fe,$0c,$0d,$0e,$0f  ; 0_
+.byt $fe,$01,$02,$03,$04,$05,$06,$07,$fe,$fe,$fe,$fe,$0c,$0d,$0e,$fe  ; 0_
 .endif
 .ifndef videx
 ;                        {→}
@@ -2025,7 +2164,7 @@ kta ;_0  _1  _2  _3  _4  _5  _6  _7  _8  _9  _a  _b  _c  _d  _e  _f
 .else
 ;                        {→}
 ;    ^P  ^Q  ^R  ^S  ^T  ^U  ^V  ^W  ^X  ^Y  ^Z  ^[  ^\  ^]  ^^  ^_
-.byt $10,$fe,$12,$13,$14,$fe,$16,$17,$18,$19,$1a,$1b,$1c,$1d,$1e,$1f  ; 1_
+.byt $10,$fe,$12,$13,$14,$fe,$16,$17,$18,$19,$1a,$1b,$1c,$1d,$fe,$1f  ; 1_
 .endif
 
 ; --- special chars ------------------------------------------------
