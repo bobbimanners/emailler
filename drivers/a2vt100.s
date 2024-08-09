@@ -1569,7 +1569,7 @@ DELe
         ldy CV          ; ...
         jsr VidexSetVec ; Set up pointers
         jsr VidexPage   ; Page in correct page on Videx
-        lda #" "|$80    ; clear char
+        lda #" "        ; clear char
         jsr VidexPut    ; Print char in A
 .else
         tya
