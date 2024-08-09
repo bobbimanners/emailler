@@ -21,8 +21,6 @@ Rows    = vt100_screen_rows
 putRS   = telnet_send_char
 SendStr = telnet_send_string
 
-COUT = $FDED
-
 ; Define symbol Videx for ][+/Videx Videoterm support instead of //e
 videx = 1
 
@@ -69,6 +67,11 @@ xVector = ptr2
 
 ; --- vector for PrnScr ---
 vVector = ptr3
+
+.ifdef videx
+; --- vector for hardware cursor ---
+cVector = ptr4
+.endif
 
 ; *************************************
 ; *
@@ -1296,24 +1299,12 @@ Plot
         stx BASL
         sty BASH
 .else
-        txa         ; Preserve X & Y (COUT trashes CH/CV)
-        pha
-        tya
-        pha
-        lda #$1e    ; ASCII code for cursor position command
-        jsr COUT
-        lda CH
-        clc
-        adc #$20    ; Add 32
-        jsr COUT
-        lda CV
-        clc
-        adc #$20    ; Add 32
-        jsr COUT
-        pla         ; Update CH & CV from stored XY regs
-        sta CH
-        pla
-        sta CV
+        stx CV      ; set row
+        sty CH      ; set col
+        ldx CH      ; Swap for call to VidexSetVec
+        ldy CV
+        jsr VidexSetVec
+        jsr VidexCurs
 .endif
         rts
 
@@ -1422,6 +1413,9 @@ PCend   pla         ; restore registers
 ; Params: X - column
 ;         Y - row
 ; Returns: X - Videx page (0 to 3) multiplied by 4
+;          BASL/BASH point to memory location in Videx page
+;          xVector is same as BASL/BASH
+;          cVector is same, but ignores the Videx paging (for cursor)
 ; affects: A,X,Y
 ; uses: xVector
 ; -------------------------------------
@@ -1450,10 +1444,13 @@ VidexSetVec
         txa             ; Column -> A
         adc xVector
         sta xVector
+        sta cVector     ; For cursor
         sta BASL        ; Store LSByte
         lda xVector+1
         adc #00         ; Now xVector has start + row * 80 + col
         pha
+        sta cVector+1   ; For cursor
+
         and #$06        ; Mask to get bits 9,10
         asl             ; Multiply by 2
         tax             ; Will return page*4 in X
@@ -1461,6 +1458,23 @@ VidexSetVec
         and #$01        ; Mask out all except LSbit
         sta xVector+1
         sta BASH        ; Store MSByte
+        rts
+
+; -------------------------------------
+; VidexCurs - set cursor position
+;       
+; Params: Expects 14 bit cursor address in cVector, cVector+1
+; Affects: A
+; -------------------------------------
+VidexCurs
+        lda #14         ; Register 14 is curs high byte
+        sta $c0b0
+        lda cVector+1   ; Store high byte
+        sta $c0b1
+        lda #15         ; Register 15 is curs low byte
+        sta $c0b0
+        lda cVector     ; Store low byte
+        sta $c0b1
         rts
 
 ; -------------------------------------
