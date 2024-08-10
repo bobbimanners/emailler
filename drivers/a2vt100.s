@@ -21,7 +21,7 @@ putRS   = telnet_send_char
 SendStr = telnet_send_string
 
 ; Define symbol Videx for ][+/Videx Videoterm support instead of //e
-;videx = 1
+videx = 1
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; TODO for VIDEX
