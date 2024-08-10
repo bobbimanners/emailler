@@ -26,11 +26,11 @@ videx = 1
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; TODO for VIDEX
-; - Reverse scroll
-; - Faster whole-screen scrolling using hardware reg
-; - Flashing cursor doesn't work
+; - Reverse scroll (fast and slow)
 ; - Keybindings for { } \ ` ~
-; - Cursor handling TODOs
+; - Flashing cursor doesn't work
+; - Cursor on/off not really called at correct times for Videx
+; - Cursor keyboard handling TODOs
 ; - Test //e build still works!
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -1688,7 +1688,13 @@ US3     lda (xVector),y ; copy char
         rts
 .else
 UScrl
-        ; EXPERIMENT -------------------------------
+        ldy SRS         ; If SRS==0 && SRE==23, use hardware scrolling
+        bne US1
+        lda SRE
+        cmp #23
+        bne US1
+
+        ; Fast hardware scrolling
         lda $6fb        ; Load start address from screen hole
         clc 
         adc #$05        ; Advance one row (5*16 bytes=80)
@@ -1713,7 +1719,7 @@ UScrl
         jsr ErLn_       ; Delete last line
         rts
 
-        ldy SRS         ; Get first line
+        ; Slow software scrolling
 US1     ldx #$00        ; First column
 US2     stx zVector     ; Use zVector as temporary for x
         sty zVector+1   ; Use zVector+1 as temporary for y
