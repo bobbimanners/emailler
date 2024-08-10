@@ -24,6 +24,16 @@ SendStr = telnet_send_string
 ; Define symbol Videx for ][+/Videx Videoterm support instead of //e
 videx = 1
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; TODO for VIDEX
+; - Reverse scroll
+; - Faster whole-screen scrolling using hardware reg
+; - Flashing cursor doesn't work
+; - Keybindings for { } \ ` ~
+; - Cursor handling TODOs
+; - Test //e build still works!
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 ; *************************************
 ; *                                   *
 ; *             C a T e r             *
@@ -1227,7 +1237,7 @@ COn     pha
         tya
         pha
 
-        lda civis        ; invisible?
+        lda civis        ; invisible? TODO: Does this work for Videx as it stands?
         bne COn4         ; -> do nothing
 
 .ifndef videx
@@ -1487,6 +1497,7 @@ VidexMvCurs
 ; VidexPage - Page in the 512 byte page videxpage
 ;
 ; Params: X - page to switch to (0 to 3) multiplied by 4
+; Affects: A
 ; -------------------------------------
 VidexPage
         lda $c0b0,x
@@ -1676,7 +1687,33 @@ US3     lda (xVector),y ; copy char
 
         rts
 .else
-UScrl   ldy SRS         ; Get first line
+UScrl
+        ; EXPERIMENT -------------------------------
+        lda $6fb        ; Load start address from screen hole
+        clc 
+        adc #$05        ; Advance one row (5*16 bytes=80)
+        sta $6fb        ; Update start address in screen hole
+        pha             ; Save for later
+        lsr             ; Mult*16 - for MSbyte
+        lsr             ; ..
+        lsr             ; ..
+        lsr             ; ..
+        ldx #12         ; Register 12 - MSbyte of start address
+        stx $c0b0
+        sta $c0b1
+        pla             ; Recover row * 5 + start
+        asl             ; Mult*16 - for LSbyte
+        asl             ; ..
+        asl             ; ..
+        asl             ; ..
+        ldx #13         ; Register 13 - LSbyte of start address
+        stx $c0b0
+        sta $c0b1
+        ldy #23         ; Last line
+        jsr ErLn_       ; Delete last line
+        rts
+
+        ldy SRS         ; Get first line
 US1     ldx #$00        ; First column
 US2     stx zVector     ; Use zVector as temporary for x
         sty zVector+1   ; Use zVector+1 as temporary for y
