@@ -26,10 +26,9 @@ videx = 1
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; TODO for VIDEX
+; - Cursor is mysteriously disappearing sometimes
 ; - Reverse scroll (fast and slow)
-; - Keybindings for { } \ ` ~
-; - Flashing cursor doesn't work
-; - Cursor on/off not really called at correct times for Videx
+; - Keybindings for { } \ ` ~ -- Maybe use Escape prefix ??
 ; - Cursor keyboard handling TODOs
 ; - Test //e build still works!
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1237,7 +1236,7 @@ COn     pha
         tya
         pha
 
-        lda civis        ; invisible? TODO: Does this work for Videx as it stands?
+        lda civis        ; invisible?
         bne COn4         ; -> do nothing
 
 .ifndef videx
@@ -1261,7 +1260,7 @@ COn3    sta (BASL),y
 .else
         lda #$0a       ; Register 10 (curs start line)
         sta $c0b0
-        lda #$40       ; Start row 0, blinking
+        lda #$0        ; Start row 0
         lda #1
         sta $c0b1
         lda #$0b       ; Register 11 (curs end line)
@@ -1366,8 +1365,12 @@ PrnChr  sta xVector ; save char
         ; -- handle reverse mode --
 PCrvs   ldx INVFLG  ; normal:$ff, reverse:$3f
         bmi PC1     ; reverse mode?
+.ifndef videx
         tax
         lda rtsc,x  ; reverse to ScreenCode
+.else
+        ora #$80    ; Videx reverse to ScreenCode
+.endif
         jmp PCput
 PC1
 .ifndef videx
@@ -1465,6 +1468,7 @@ VidexSetVec
         lda xVector+1
         adc #00         ; Now xVector has start + row * 80 + col
         pha
+        and #$3f        ; Mask out two high bits
         sta cVector+1   ; For cursor
 
         and #$06        ; Mask to get bits 9,10
