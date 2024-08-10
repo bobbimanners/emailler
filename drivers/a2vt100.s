@@ -7,7 +7,6 @@
 .export vt100_exit_terminal         = ExitTerminal
 .export vt100_process_inbound_char  = ProcIn
 .export vt100_process_outbound_char = ProcOut
-.export videx_debug = VidexSetVec ; DEBUG ONLY
 .exportzp vt100_screen_cols         = 80
 .exportzp vt100_screen_rows         = 24
 
@@ -22,15 +21,14 @@ putRS   = telnet_send_char
 SendStr = telnet_send_string
 
 ; Define symbol Videx for ][+/Videx Videoterm support instead of //e
-videx = 1
+;videx = 1
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; TODO for VIDEX
 ; - Cursor is mysteriously disappearing sometimes
 ; - Reverse scroll (fast and slow)
-; - Keybindings for { } \ ` ~ -- Maybe use Escape prefix ??
+; - Keybindings for { } \ ` ~ _ -- Maybe use Escape prefix ??
 ; - Cursor keyboard handling TODOs
-; - Test //e build still works!
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ; *************************************
@@ -1189,10 +1187,7 @@ HelpStr ;".........1.........2.........3.........4.........5.........6.........7
 ; After movement COn has to be called.
 ; -------------------------------------
 
-COff
-        rts ;; DEBUG
-
-        pha            ; save registers
+COff    pha            ; save registers
         tya
         pha
 
@@ -1468,7 +1463,7 @@ VidexSetVec
         lda xVector+1
         adc #00         ; Now xVector has start + row * 80 + col
         pha
-        and #$3f        ; Mask out two high bits
+        and #$3f        ; Mask out top two bits
         sta cVector+1   ; For cursor
 
         and #$06        ; Mask to get bits 9,10
