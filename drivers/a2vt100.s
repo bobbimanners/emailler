@@ -25,6 +25,7 @@ videx = 1
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; TODO for VIDEX
+; - Why no cursor at login prompt?
 ; - Keybindings for { } \ ` ~ _ -- Maybe use Escape prefix ??
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -1263,8 +1264,7 @@ COn3    sta (BASL),y
 .else
         lda #$0a       ; Register 10 (curs start line)
         sta SL3DEV0
-        lda #$0        ; Start row 0
-        lda #1
+        lda #$40       ; Start row 0, flashing
         sta SL3DEV1
         lda #$0b       ; Register 11 (curs end line)
         sta SL3DEV0
