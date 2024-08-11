@@ -25,7 +25,6 @@ videx = 1
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; TODO for VIDEX
-; - Reverse scroll (fast and slow)
 ; - Keybindings for { } \ ` ~ _ -- Maybe use Escape prefix ??
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -1517,7 +1516,7 @@ VidexSetCurs
         adc #00         ; Now cVector has row * 80 + col
         sta cVector+1   ; For cursor
 
-        clc
+        clc             ; Add the display base address
         lda cVector
         adc BASEL
         sta cVector
@@ -1774,6 +1773,7 @@ UScrl
         rts
 
         ; Slow software scrolling
+        ; y = SRS
 US1     ldx #$00        ; First column
 US2     stx zVector     ; Use zVector as temporary for x
         sty zVector+1   ; Use zVector+1 as temporary for y
@@ -1856,7 +1856,65 @@ DS3     lda (xVector),y ; copy char
         rts
 .else
 DScrl
-        ; TODO - Write me
+        ldy SRE         ; If SRS==0 && SRE==23, use hardware scrolling
+        cmp #23
+        bne DS1
+        lda SRS
+        bne DS1
+
+        ; Fast hardware scrolling
+        lda START       ; Load start address from screen hole
+        sec 
+        sbc #$05        ; Go up one row (5*16 bytes=80)
+        sta START       ; Update start address in screen hole
+        pha             ; Save for later
+        lsr             ; Mult*16 - for MSbyte
+        lsr             ; ..
+        lsr             ; ..
+        lsr             ; ..
+        ldx #12         ; Register 12 - MSbyte of start address
+        stx SL3DEV0
+        sta SL3DEV1
+        sta BASEH       ; Stash in screen hole
+        pla             ; Recover row * 5 + start
+        asl             ; Mult*16 - for LSbyte
+        asl             ; ..
+        asl             ; ..
+        asl             ; ..
+        ldx #13         ; Register 13 - LSbyte of start address
+        stx SL3DEV0
+        sta SL3DEV1
+        sta BASEL       ; Stash in screen hole
+        ldy #0          ; First line
+        jsr ErLn_       ; Delete first line
+        rts
+
+        ; Slow software scrolling
+        ; y = SRE
+DS1     ldx #$00        ; First column
+DS2     stx zVector     ; Use zVector as temporary for x
+        sty zVector+1   ; Use zVector+1 as temporary for y
+        dey             ; Copy from row above
+        jsr VidexSetVec ; Set up pointers
+        jsr VidexPage   ; Page in correct page on Videx
+        jsr VidexGet    ; Get source char
+        pha             ; Stash char for later
+        ldx zVector     ; Recover X
+        ldy zVector+1   ; Recover Y
+        jsr VidexSetVec ; Set up pointers
+        jsr VidexPage   ; Page in correct page on Videx
+        pla             ; Recover char
+        jsr VidexPut    ; Copy char to screen
+        ldx zVector     ; Recover X
+        ldy zVector+1   ; Recover Y
+        inx             ; Next col
+        cpx #80         ; Last col?
+        bne DS2
+        dey             ; Next line (going upwards)
+        cpy SRS         ; Last line?
+        bne DS1         ; Nope, go again
+        ldy SRS
+        jsr ErLn_       ; Delete first line (SRS)
         rts
 .endif
 
