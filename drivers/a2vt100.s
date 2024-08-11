@@ -27,7 +27,6 @@ videx = 1
 ; TODO for VIDEX
 ; - Reverse scroll (fast and slow)
 ; - Keybindings for { } \ ` ~ _ -- Maybe use Escape prefix ??
-; - Cursor keyboard handling TODOs
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ; *************************************
@@ -1039,8 +1038,8 @@ CmdKey  tya         ; restore character
 ; both events send char $08
         cmp #$08
         bne C0
-        bit BUTN0   ; Open-Apple key TODO
-        bpl crsrL   ; not pressed
+        bit $c063   ; PB3 shift key
+        bpl crsrL   ; pressed
         jsr putRS   ; send ^H
         rts
 
@@ -1055,8 +1054,8 @@ crsrL   ldx #<ScrsrL
 ; both events send char $0a
 C0      cmp #$0a
         bne C1
-        bit BUTN0   ; Open-Apple key TODO
-        bpl crsrD   ; not pressed
+        bit $c063   ; PB3 shift key
+        bpl crsrD   ; pressed
         jsr putRS   ; send ^J
         rts
 
@@ -1071,8 +1070,8 @@ crsrD   ldx #<ScrsrD
 ; both events send char $0b
 C1      cmp #$0b
         bne C2
-        bit BUTN0   ; Open-Apple key TODO
-        bpl crsrU   ; not pressed
+        bit $c063   ; PB3 shift key
+        bpl crsrU   ; pressed
         jsr putRS   ; send ^K
         rts
 
@@ -1087,8 +1086,8 @@ crsrU   ldx #<ScrsrU
 ; both events send char $15
 C2      cmp #$15
         bne C3
-        bit BUTN0   ; Open-Apple key TODO
-        bpl crsrR   ; not pressed
+        bit $c063   ; PB3 shift key
+        bpl crsrR   ; pressed
         jsr putRS   ; send ^U
         rts
 
