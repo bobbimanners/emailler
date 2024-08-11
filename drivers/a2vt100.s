@@ -25,8 +25,6 @@ videx = 1
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; TODO for VIDEX
-; - Cursor is mysteriously disappearing sometimes
-; - Magic values -> symbols!!
 ; - Reverse scroll (fast and slow)
 ; - Keybindings for { } \ ` ~ _ -- Maybe use Escape prefix ??
 ; - Cursor keyboard handling TODOs
@@ -152,9 +150,14 @@ sCrsrChar .res 1
 mul10buf .res 1
 
 .ifdef videx
-BASEL = $47b      ; Videx screen base address low (screen hole)
-BASEH = $4fb      ; Videx screen base address high (screen hole)
-START = $6fb      ; Videx screen start address (screen hole)
+; Screen holes
+BASEL = $47b      ; Videx screen base address low
+BASEH = $4fb      ; Videx screen base address high
+START = $6fb      ; Videx screen start address
+
+; Device in slot 3
+SL3DEV0 = $c0b0   ; DEV0 for selecting registers
+SL3DEV1 = $c0b1   ; DEV1 for writing data
 .endif
 
 ; *************************************
@@ -1212,13 +1215,13 @@ CO1     sta (BASL),y
         bit $c054
 .else
         lda #$0a       ; Register 10 (curs start line)
-        sta $c0b0
+        sta SL3DEV0
         lda #$01       ; Start row 1, do not display
-        sta $c0b1
+        sta SL3DEV1
         lda #$0b       ; Register 11 (curs end line)
-        sta $c0b0
+        sta SL3DEV0
         lda #$00       ; End row 0
-        sta $c0b1
+        sta SL3DEV1
 .endif
 
 CO2     pla         ; restore registers
@@ -1261,14 +1264,14 @@ COn3    sta (BASL),y
 
 .else
         lda #$0a       ; Register 10 (curs start line)
-        sta $c0b0
+        sta SL3DEV0
         lda #$0        ; Start row 0
         lda #1
-        sta $c0b1
+        sta SL3DEV1
         lda #$0b       ; Register 11 (curs end line)
-        sta $c0b0
+        sta SL3DEV0
         lda #11        ; End row 11
-        sta $c0b1
+        sta SL3DEV1
 .endif
 
 COn4    pla
@@ -1481,6 +1484,11 @@ VidexSetVec
         sta BASH        ; Store MSByte
         rts
 
+; -------------------------------------
+; VidexSetCurs - set cVector for hardware cursor
+;
+; Returns: cVector is the cursor address
+; -------------------------------------
 VidexSetCurs
         pha
         lda CV          ; Row -> A
@@ -1529,13 +1537,13 @@ VidexSetCurs
 ; -------------------------------------
 VidexMvCurs
         lda #14         ; Register 14 is curs high byte
-        sta $c0b0
+        sta SL3DEV0
         lda cVector+1   ; Store high byte
-        sta $c0b1
+        sta SL3DEV1
         lda #15         ; Register 15 is curs low byte
-        sta $c0b0
+        sta SL3DEV0
         lda cVector     ; Store low byte
-        sta $c0b1
+        sta SL3DEV1
         rts
 
 ; -------------------------------------
@@ -1545,7 +1553,7 @@ VidexMvCurs
 ; Affects: A
 ; -------------------------------------
 VidexPage
-        lda $c0b0,x
+        lda SL3DEV0,x
         rts
 
 ; -------------------------------------
@@ -1750,8 +1758,8 @@ UScrl
         lsr             ; ..
         lsr             ; ..
         ldx #12         ; Register 12 - MSbyte of start address
-        stx $c0b0
-        sta $c0b1
+        stx SL3DEV0
+        sta SL3DEV1
         sta BASEH       ; Stash in screen hole
         pla             ; Recover row * 5 + start
         asl             ; Mult*16 - for LSbyte
@@ -1759,8 +1767,8 @@ UScrl
         asl             ; ..
         asl             ; ..
         ldx #13         ; Register 13 - LSbyte of start address
-        stx $c0b0
-        sta $c0b1
+        stx SL3DEV0
+        sta SL3DEV1
         sta BASEL       ; Stash in screen hole
         ldy #23         ; Last line
         jsr ErLn_       ; Delete last line
