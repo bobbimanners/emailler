@@ -25,7 +25,7 @@ videx = 1
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; TODO for VIDEX
-; - Why no cursor at login prompt?
+; - Why no cursor at login prompt? Works after a hw scroll. Why?
 ; - Keybindings for { } \ ` ~ _ -- Maybe use Escape prefix ??
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -1465,13 +1465,10 @@ VidexSetVec
         txa             ; Column -> A
         adc xVector
         sta xVector
-        ;sta cVector     ; For cursor
         sta BASL        ; Store LSByte
         lda xVector+1
         adc #00         ; Now xVector has start + row * 80 + col
         pha
-        ;and #$3f        ; Mask out top two bits
-        ;sta cVector+1   ; For cursor
 
         and #$06        ; Mask to get bits 9,10
         asl             ; Multiply by 2
