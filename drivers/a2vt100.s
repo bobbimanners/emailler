@@ -2196,13 +2196,22 @@ ExitChar
 
 InitScr
 .ifdef videx
+        lda #$00
+        sta CV
+        sta CH
+        sta BASEL
+        sta BASEH
+        sta START
+        ldx #12       ; Register 12 - MSbyte of start address
+        stx SL3DEV0
+        sta SL3DEV1
+        ldx #13       ; Register 13 - LSbyte of start address
+        stx SL3DEV0
+        sta SL3DEV1
         sta $cfff     ; Turn off any other $c800 shared ROM
         sta $c300     ; Select slot 3 ROM to $c800 space
         lda #$8c
         jsr $c300     ; Initialize Videoterm and clear screen
-        lda #$00
-        sta CV
-        sta CH
 .else
         ; --- turn on 80 col ---
         jsr $c300
