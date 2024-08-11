@@ -26,6 +26,7 @@ videx = 1
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; TODO for VIDEX
 ; - Cursor is mysteriously disappearing sometimes
+; - Magic values -> symbols!!
 ; - Reverse scroll (fast and slow)
 ; - Keybindings for { } \ ` ~ _ -- Maybe use Escape prefix ??
 ; - Cursor keyboard handling TODOs
@@ -149,6 +150,12 @@ sCrsrChar .res 1
 
 ; --- buffer for addDecDig ---
 mul10buf .res 1
+
+.ifdef videx
+BASEL = $47b      ; Videx screen base address low (screen hole)
+BASEH = $4fb      ; Videx screen base address high (screen hole)
+START = $6fb      ; Videx screen start address (screen hole)
+.endif
 
 ; *************************************
 ; *
@@ -1305,9 +1312,7 @@ Plot
 .else
         stx CV      ; set row
         sty CH      ; set col
-        ldx CH      ; Swap for call to VidexSetVec
-        ldy CV
-        jsr VidexSetVec
+        jsr VidexSetCurs
         jsr VidexMvCurs
 .endif
         rts
@@ -1383,6 +1388,7 @@ PC2
         ldx CH          ; Load cursor position
         ldy CV          ; ...
         jsr VidexSetVec ; Set up pointers
+        jsr VidexSetCurs
         jsr VidexPage   ; Page in correct page on Videx
         pla             ; Recover character to print
         jsr VidexPut    ; Print char in A
@@ -1440,7 +1446,7 @@ VidexSetVec
         asl             ; ..
         clc             ; ..
         adc xVector     ; A = row * 5
-        adc $6fb        ; Add start address
+        adc START       ; Add start address
         pha             ; Save for later
         lsr             ; Mult*16 - for MSbyte
         lsr             ; ..
@@ -1458,13 +1464,13 @@ VidexSetVec
         txa             ; Column -> A
         adc xVector
         sta xVector
-        sta cVector     ; For cursor
+        ;sta cVector     ; For cursor
         sta BASL        ; Store LSByte
         lda xVector+1
         adc #00         ; Now xVector has start + row * 80 + col
         pha
-        and #$3f        ; Mask out top two bits
-        sta cVector+1   ; For cursor
+        ;and #$3f        ; Mask out top two bits
+        ;sta cVector+1   ; For cursor
 
         and #$06        ; Mask to get bits 9,10
         asl             ; Multiply by 2
@@ -1473,6 +1479,46 @@ VidexSetVec
         and #$01        ; Mask out all except LSbit
         sta xVector+1
         sta BASH        ; Store MSByte
+        rts
+
+VidexSetCurs
+        pha
+        lda CV          ; Row -> A
+        sta cVector     ; Temporary
+        asl             ; Multiply by 5
+        asl             ; ..
+        clc             ; ..
+        adc cVector     ; A = row * 5
+        pha             ; Save for later
+        lsr             ; Mult*16 - for MSbyte
+        lsr             ; ..
+        lsr             ; ..
+        lsr             ; ..
+        sta cVector+1   ; Store MSByte
+        pla             ; Recover row * 5
+        asl             ; Mult*16 - for LSbyte
+        asl             ; ..
+        asl             ; ..
+        asl             ; ..
+        sta cVector     ; Store LSByte
+        
+        clc
+        lda CH          ; Column -> A
+        adc cVector
+        sta cVector     ; For cursor
+        lda cVector+1
+        adc #00         ; Now cVector has row * 80 + col
+        sta cVector+1   ; For cursor
+
+        clc
+        lda cVector
+        adc BASEL
+        sta cVector
+        lda cVector+1
+        adc BASEH
+        sta cVector+1
+
+        pla
         rts
 
 ; -------------------------------------
@@ -1694,10 +1740,10 @@ UScrl
         bne US1
 
         ; Fast hardware scrolling
-        lda $6fb        ; Load start address from screen hole
+        lda START       ; Load start address from screen hole
         clc 
         adc #$05        ; Advance one row (5*16 bytes=80)
-        sta $6fb        ; Update start address in screen hole
+        sta START       ; Update start address in screen hole
         pha             ; Save for later
         lsr             ; Mult*16 - for MSbyte
         lsr             ; ..
@@ -1706,6 +1752,7 @@ UScrl
         ldx #12         ; Register 12 - MSbyte of start address
         stx $c0b0
         sta $c0b1
+        sta BASEH       ; Stash in screen hole
         pla             ; Recover row * 5 + start
         asl             ; Mult*16 - for LSbyte
         asl             ; ..
@@ -1714,6 +1761,7 @@ UScrl
         ldx #13         ; Register 13 - LSbyte of start address
         stx $c0b0
         sta $c0b1
+        sta BASEL       ; Stash in screen hole
         ldy #23         ; Last line
         jsr ErLn_       ; Delete last line
         rts
