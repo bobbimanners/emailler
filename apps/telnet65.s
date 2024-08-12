@@ -526,7 +526,7 @@ welcome_2:              .byte 14,"x",15,"    - IP65 (github.com/cc65/ip65)     "
                         .byte 15,13,10
                         .byte 27,")A"
                         .byte 27,"[?25l",0
-on_connect:             .byte 27,"[?25h",13,10,13,10,13,10,13,10,13,10,0 ; Force a scroll
+on_connect:             .byte 27,"[?25h",0
 on_disconnect:          .byte 27,"[?25l",27,"[0m",27,"(A",15,0
 
 ; initial_telnet_options:

@@ -25,8 +25,8 @@ videx = 1
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; TODO for VIDEX
-; - Why no cursor at login prompt? Works after a hw scroll. Why?
 ; - Keybindings for { } \ ` ~ _ -- Maybe use Escape prefix ??
+; - cVector doesn't need to be ZP
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ; *************************************
@@ -149,12 +149,10 @@ sCrsrChar .res 1
 mul10buf .res 1
 
 .ifdef videx
-; Screen holes
-BASEL = $47b      ; Videx screen base address low
-BASEH = $4fb      ; Videx screen base address high
-START = $6fb      ; Videx screen start address
+VidexBase .res 2  ; Videx screen base address
 
 ; Device in slot 3
+START = $6fb      ; Videx screen start address (slot 3 screen hole)
 SL3DEV0 = $c0b0   ; DEV0 for selecting registers
 SL3DEV1 = $c0b1   ; DEV1 for writing data
 .endif
@@ -1515,10 +1513,10 @@ VidexSetCurs
 
         clc             ; Add the display base address
         lda cVector
-        adc BASEL
+        adc VidexBase
         sta cVector
         lda cVector+1
-        adc BASEH
+        adc VidexBase+1
         sta cVector+1
 
         pla
@@ -1755,7 +1753,7 @@ UScrl
         ldx #12         ; Register 12 - MSbyte of start address
         stx SL3DEV0
         sta SL3DEV1
-        sta BASEH       ; Stash in screen hole
+        sta VidexBase+1 ; Store base address MSbyte
         pla             ; Recover row * 5 + start
         asl             ; Mult*16 - for LSbyte
         asl             ; ..
@@ -1764,7 +1762,7 @@ UScrl
         ldx #13         ; Register 13 - LSbyte of start address
         stx SL3DEV0
         sta SL3DEV1
-        sta BASEL       ; Stash in screen hole
+        sta VidexBase   ; Store base address LSbyte
         ldy #23         ; Last line
         jsr ErLn_       ; Delete last line
         rts
@@ -1872,7 +1870,7 @@ DScrl
         ldx #12         ; Register 12 - MSbyte of start address
         stx SL3DEV0
         sta SL3DEV1
-        sta BASEH       ; Stash in screen hole
+        sta VidexBase+1 ; Store base address MSbyte
         pla             ; Recover row * 5 + start
         asl             ; Mult*16 - for LSbyte
         asl             ; ..
@@ -1881,7 +1879,7 @@ DScrl
         ldx #13         ; Register 13 - LSbyte of start address
         stx SL3DEV0
         sta SL3DEV1
-        sta BASEL       ; Stash in screen hole
+        sta VidexBase   ; Store base address LSbyte
         ldy #0          ; First line
         jsr ErLn_       ; Delete first line
         rts
@@ -2196,8 +2194,8 @@ InitScr
         lda #$00
         sta CV
         sta CH
-        sta BASEL
-        sta BASEH
+        sta VidexBase
+        sta VidexBase+1
         sta START
         ldx #12       ; Register 12 - MSbyte of start address
         stx SL3DEV0
