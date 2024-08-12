@@ -26,7 +26,6 @@ videx = 1
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; TODO for VIDEX
 ; - Keybindings for { } \ ` ~ _ -- Maybe use Escape prefix ??
-; - cVector doesn't need to be ZP
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ; *************************************
@@ -72,11 +71,6 @@ xVector = ptr2
 
 ; --- vector for PrnScr ---
 vVector = ptr3
-
-.ifdef videx
-; --- vector for hardware cursor ---
-cVector = ptr4
-.endif
 
 ; *************************************
 ; *
@@ -150,6 +144,7 @@ mul10buf .res 1
 
 .ifdef videx
 VidexBase .res 2  ; Videx screen base address
+VidexCurs .res 2    ; Videx cursor address
 
 ; Device in slot 3
 START = $6fb      ; Videx screen start address (slot 3 screen hole)
@@ -1392,9 +1387,9 @@ PC2
         pla             ; Recover character to print
         jsr VidexPut    ; Print char in A
 
-        inc cVector     ; Increment cursor address
+        inc VidexCurs   ; Increment cursor address
         bne PC2a
-        inc cVector+1
+        inc VidexCurs+1
 PC2a    jsr VidexMvCurs ; Move cursor
 
 .else
@@ -1434,7 +1429,7 @@ PCend   pla         ; restore registers
 ; Returns: X - Videx page (0 to 3) multiplied by 4
 ;          BASL/BASH point to memory location in Videx page
 ;          xVector is same as BASL/BASH
-;          cVector is same, but ignores the Videx paging (for cursor)
+;          VidexCurs is same, but ignores the Videx paging (for cursor)
 ; affects: A,X,Y
 ; uses: xVector
 ; -------------------------------------
@@ -1478,46 +1473,46 @@ VidexSetVec
         rts
 
 ; -------------------------------------
-; VidexSetCurs - set cVector for hardware cursor
+; VidexSetCurs - set VidexCurs for hardware cursor
 ;
-; Returns: cVector is the cursor address
+; Returns: VidexCurs is the cursor address
 ; -------------------------------------
 VidexSetCurs
         pha
         lda CV          ; Row -> A
-        sta cVector     ; Temporary
+        sta VidexCurs   ; Temporary
         asl             ; Multiply by 5
         asl             ; ..
         clc             ; ..
-        adc cVector     ; A = row * 5
+        adc VidexCurs   ; A = row * 5
         pha             ; Save for later
         lsr             ; Mult*16 - for MSbyte
         lsr             ; ..
         lsr             ; ..
         lsr             ; ..
-        sta cVector+1   ; Store MSByte
+        sta VidexCurs+1 ; Store MSByte
         pla             ; Recover row * 5
         asl             ; Mult*16 - for LSbyte
         asl             ; ..
         asl             ; ..
         asl             ; ..
-        sta cVector     ; Store LSByte
+        sta VidexCurs   ; Store LSByte
         
         clc
         lda CH          ; Column -> A
-        adc cVector
-        sta cVector     ; For cursor
-        lda cVector+1
-        adc #00         ; Now cVector has row * 80 + col
-        sta cVector+1   ; For cursor
+        adc VidexCurs
+        sta VidexCurs   ; For cursor
+        lda VidexCurs+1
+        adc #00         ; Now VidexCurs has row * 80 + col
+        sta VidexCurs+1 ; For cursor
 
         clc             ; Add the display base address
-        lda cVector
+        lda VidexCurs
         adc VidexBase
-        sta cVector
-        lda cVector+1
+        sta VidexCurs
+        lda VidexCurs+1
         adc VidexBase+1
-        sta cVector+1
+        sta VidexCurs+1
 
         pla
         rts
@@ -1525,17 +1520,17 @@ VidexSetCurs
 ; -------------------------------------
 ; VidexMvCurs - set hardware cursor position
 ;       
-; Params: Expects 14 bit cursor address in cVector, cVector+1
+; Params: Expects 14 bit cursor address in VidexCurs, VidexCurs+1
 ; Affects: A
 ; -------------------------------------
 VidexMvCurs
         lda #14         ; Register 14 is curs high byte
         sta SL3DEV0
-        lda cVector+1   ; Store high byte
+        lda VidexCurs+1 ; Store high byte
         sta SL3DEV1
         lda #15         ; Register 15 is curs low byte
         sta SL3DEV0
-        lda cVector     ; Store low byte
+        lda VidexCurs   ; Store low byte
         sta SL3DEV1
         rts
 
