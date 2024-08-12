@@ -1026,117 +1026,75 @@ C5      rts
 
 CmdKey  tya         ; restore character
 
+; Cursor uses I/J/K/M in Apple ][ tradition
+
 ; --- crsr L ---
-; ---   ^H   ---
-; both events send char $08
-        cmp #$08
+; ---   ^J   ---
+        cmp #$0a
         bne C0
         bit $c063   ; PB3 shift key
         bpl crsrL   ; pressed
-        jsr putRS   ; send ^H
+        jsr putRS   ; send ^J
         rts
-
-        ; crsr L
 crsrL   ldx #<ScrsrL
         ldy #>ScrsrL
         jsr SendStr
         rts
 
 ; --- crsr D ---
-; ---   ^J   ---
-; both events send char $0a
-C0      cmp #$0a
+; ---   ^]   ---
+C0      cmp #$1d
         bne C1
         bit $c063   ; PB3 shift key
         bpl crsrD   ; pressed
-        jsr putRS   ; send ^J
+    ;;;lda #$0d    ; ^M
+        jsr putRS   ; send ^M
         rts
-
-        ; crsr down is pressed
 crsrD   ldx #<ScrsrD
         ldy #>ScrsrD
         jsr SendStr
         rts
 
 ; --- crsr U ---
-; ---   ^K   ---
-; both events send char $0b
-C1      cmp #$0b
+; ---   ^I   ---
+C1      cmp #$09
         bne C2
         bit $c063   ; PB3 shift key
         bpl crsrU   ; pressed
-        jsr putRS   ; send ^K
+        jsr putRS   ; send ^I
         rts
-
-        ; crsr up is pressed
 crsrU   ldx #<ScrsrU
         ldy #>ScrsrU
         jsr SendStr
         rts
 
 ; --- crsr R ---
-; ---   ^U   ---
-; both events send char $15
-C2      cmp #$15
+; ---   ^K   ---
+C2      cmp #$0b
         bne C3
         bit $c063   ; PB3 shift key
         bpl crsrR   ; pressed
-        jsr putRS   ; send ^U
+        jsr putRS   ; send ^K
         rts
-
-        ; crsr R
 crsrR   ldx #<ScrsrR
         ldy #>ScrsrR
         jsr SendStr
         rts
 
-; ---  Shift-Ctrl-n ---
-C3      cmp #$1e    ; ^^
-        bne C4
+C3      lda videxbind,y ; Lookup alternate binding
+        beq C5      ; If zero then there is no binding
         bit $c063   ; PB3 shift key
-        bmi C3a     ; Not pressed
-        lda #$5e    ; ^
-        jsr putRS   ; Send it
+        bmi C4      ; Not pressed
+        jsr putRS   ; Shifted, send the alternate binding in A
         rts
-C3a     jsr putRS   ; Send the ^n/^^
+C4      tya         ; Original ctrl-key code
+        jsr putRS   ; Unshifted, send the original ctrl code
         rts
-
-; ---  Shift-Ctrl-p ---
-C4      cmp #$00    ; ^@
-        bne C5
-        bit $c063   ; PB3 shift key
-        bmi C4a     ; Not pressed
-        lda #$40    ; @
-        jsr putRS   ; Send it
-        rts
-C4a     jsr putRS   ; Send the ^p/^p
-        rts
-
-; ---  Shift-Ctrl-i ---
-C5      cmp #$09    ; ^i
-        bne C6
-        bit $c063   ; PB3 shift key
-        bmi C5a     ; Not pressed
-        lda #$5b    ; [
-        jsr putRS   ; Send it
-        rts
-C5a     jsr putRS   ; Send the ^i
-        rts
-
-; ---  Shift-Ctrl-o ---
-C6      cmp #$0f    ; ^o
-        bne C7
-        bit $c063   ; PB3 shift key
-        bmi C6a     ; Not pressed
-        lda #$5d    ; ]
-        jsr putRS   ; Send it
-        rts
-C6a     jsr putRS   ; Send the ^o
-        rts
-
+        
 ; ---  Shift-Ctrl-q ---
 ; quit CaTer
-C7      cmp #$11    ; ^q
+C5      tya
+        cmp #$11    ; ^q
         bne C8
         bit $c063   ; PB3 shift key
         bpl Cquit   ; pressed
@@ -1147,8 +1105,19 @@ C7      cmp #$11    ; ^q
 Cquit   jsr telnet_close
         rts
 
-; --- unknown character ---
-C8      rts
+; --- other, unmapped character ---
+C8      jsr putRS
+        rts
+
+; Table of bindings for Shift-Ctrl key combinations
+; Shift-Ctrl-Z    [$1a] -> [ [$5b]
+; Shift-Ctrl-N ^^ [$1e] -> ^ [$5e]
+; Shift-Ctrl-X    [$18] -> ] [$5d]
+; Shift-Ctrl-P ^@ [$00] -> @ [$40]
+videxbind
+;     _0  _1  _2  _3  _4  _5  _6  _7  _8  _9  _a  _b  _c  _d  _e  _f
+.byt $40,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00  ; 0_
+.byt $00,$00,$00,$00,$00,$00,$00,$00,$5d,$00,$5b,$00,$00,$00,$5e,$00  ; 1_
 .endif
 
 ; -------------------------------------
@@ -2327,18 +2296,16 @@ kta ;_0  _1  _2  _3  _4  _5  _6  _7  _8  _9  _a  _b  _c  _d  _e  _f
 ;    ^@  ^A  ^B  ^C  ^D  ^E  ^F  ^G  ^H  ^I  ^J  ^K  ^L  ^M  ^N  ^O
 .byt $00,$01,$02,$03,$04,$05,$06,$07,$fe,$09,$fe,$fe,$0c,$0d,$0e,$0f  ; 0_
 .else
-;                                    {←}     {↓} {↑}
 ;    ^@  ^A  ^B  ^C  ^D  ^E  ^F  ^G  ^H  ^I  ^J  ^K  ^L  ^M  ^N  ^O
-.byt $fe,$01,$02,$03,$04,$05,$06,$07,$fe,$fe,$fe,$fe,$0c,$0d,$0e,$fe  ; 0_
+.byt $fe,$fe,$fe,$fe,$fe,$fe,$fe,$fe,$fe,$fe,$fe,$fe,$fe,$fe,$fe,$fe  ; 0_
 .endif
 .ifndef videx
 ;                        {→}
 ;    ^P  ^Q  ^R  ^S  ^T  ^U  ^V  ^W  ^X  ^Y  ^Z  ^[  ^\  ^]  ^^  ^_
 .byt $10,$11,$12,$13,$14,$fe,$16,$17,$18,$19,$1a,$1b,$1c,$1d,$1e,$1f  ; 1_
 .else
-;                        {→}
 ;    ^P  ^Q  ^R  ^S  ^T  ^U  ^V  ^W  ^X  ^Y  ^Z  ^[  ^\  ^]  ^^  ^_
-.byt $10,$fe,$12,$13,$14,$fe,$16,$17,$18,$19,$1a,$1b,$1c,$1d,$fe,$1f  ; 1_
+.byt $fe,$fe,$fe,$fe,$fe,$fe,$fe,$fe,$fe,$fe,$fe,$fe,$fe,$fe,$fe,$fe  ; 1_
 .endif
 
 ; --- special chars ------------------------------------------------
