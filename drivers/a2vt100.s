@@ -1110,14 +1110,21 @@ C8      jsr putRS
         rts
 
 ; Table of bindings for Shift-Ctrl key combinations
-; Shift-Ctrl-Z    [$1a] -> [ [$5b]
+; Shift-Ctrl-I/J/K/M is the cursor diamond
+; Shift-Ctrl-A    [$01] -> { [$7b]
+; Shift-Ctrl-B    [$02] -> \ [$5c]
+; Shift-Ctrl-G    [$07] -> ` [$60]
 ; Shift-Ctrl-N ^^ [$1e] -> ^ [$5e]
-; Shift-Ctrl-X    [$18] -> ] [$5d]
 ; Shift-Ctrl-P ^@ [$00] -> @ [$40]
+; Shift-Ctrl-S    [$13] -> } [$7d]
+; Shift-Ctrl-T    [$14] -> ~ [$7e]
+; Shift-Ctrl-U    [$15] -> _ [$5f]
+; Shift-Ctrl-X    [$18] -> ] [$5d]
+; Shift-Ctrl-Z    [$1a] -> [ [$5b]
 videxbind
 ;     _0  _1  _2  _3  _4  _5  _6  _7  _8  _9  _a  _b  _c  _d  _e  _f
-.byt $40,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00  ; 0_
-.byt $00,$00,$00,$00,$00,$00,$00,$00,$5d,$00,$5b,$00,$00,$00,$5e,$00  ; 1_
+.byt $40,$7b,$5c,$00,$00,$00,$00,$60,$00,$00,$00,$00,$00,$00,$00,$00  ; 0_
+.byt $00,$00,$00,$7d,$7e,$5f,$00,$00,$5d,$00,$5b,$00,$00,$00,$5e,$00  ; 1_
 .endif
 
 ; -------------------------------------
