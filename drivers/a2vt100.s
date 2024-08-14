@@ -25,7 +25,9 @@ videx = 1
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; TODO for VIDEX
-; - Keybindings for { } \ ` ~ _ -- Maybe use Escape prefix ??
+; - Prefix / lead in key alternate key map
+; - Make it harder to quit by mistake
+; - Support ][+ WITHOUT shift key mod
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ; *************************************
@@ -144,7 +146,8 @@ mul10buf .res 1
 
 .ifdef videx
 VidexBase .res 2  ; Videx screen base address
-VidexCurs .res 2    ; Videx cursor address
+VidexCurs .res 2  ; Videx cursor address
+CapsLock  .res 1  ; Caps lock status $00 off, $FF on
 
 ; Device in slot 3
 START = $6fb      ; Videx screen start address (slot 3 screen hole)
@@ -898,20 +901,20 @@ aDDigE  rts
 
 ProcOut
 .ifdef videx
-        cpy #40     ; Key<40 ..
-        bcc PO1     ; .. ignore shift key
-        bit $c063   ; Read PB3 "shift mod"
-        bpl PO1     ; Shifted
+        cpy #40      ; Key<40 ..
+        bcc PO1      ; .. ignore shift key
+        jsr IsShifted
+        bcs PO1      ; Shifted
         tya
-        ora #$20    ; Set bit 6 for unshifted chars
+        ora #$20     ; Set bit 6 for unshifted chars
         tay
 PO1     
 .endif
-        lda kta,y   ; keyboard to ASCII
+        lda kta,y    ; keyboard to ASCII
         cmp #$ff
-        beq POrts   ; ignore key
+        beq POrts    ; ignore key
         cmp #$fe
-        beq CmdKey  ; command key
+        beq CmdKey   ; command key
 PO2     jsr putRS
 POrts   rts
 
@@ -1032,8 +1035,8 @@ CmdKey  tya         ; restore character
 ; ---   ^J   ---
         cmp #$0a
         bne C0
-        bit $c063   ; PB3 shift key
-        bpl crsrL   ; pressed
+        jsr IsShifted
+        bcs crsrL   ; pressed
         jsr putRS   ; send ^J
         rts
 crsrL   ldx #<ScrsrL
@@ -1045,9 +1048,8 @@ crsrL   ldx #<ScrsrL
 ; ---   ^]   ---
 C0      cmp #$1d
         bne C1
-        bit $c063   ; PB3 shift key
-        bpl crsrD   ; pressed
-    ;;;lda #$0d    ; ^M
+        jsr IsShifted
+        bcs crsrD   ; pressed
         jsr putRS   ; send ^M
         rts
 crsrD   ldx #<ScrsrD
@@ -1059,8 +1061,8 @@ crsrD   ldx #<ScrsrD
 ; ---   ^I   ---
 C1      cmp #$09
         bne C2
-        bit $c063   ; PB3 shift key
-        bpl crsrU   ; pressed
+        jsr IsShifted
+        bcs crsrU   ; pressed
         jsr putRS   ; send ^I
         rts
 crsrU   ldx #<ScrsrU
@@ -1072,8 +1074,8 @@ crsrU   ldx #<ScrsrU
 ; ---   ^K   ---
 C2      cmp #$0b
         bne C3
-        bit $c063   ; PB3 shift key
-        bpl crsrR   ; pressed
+        jsr IsShifted
+        bcs crsrR   ; pressed
         jsr putRS   ; send ^K
         rts
 crsrR   ldx #<ScrsrR
@@ -1081,24 +1083,40 @@ crsrR   ldx #<ScrsrR
         jsr SendStr
         rts
 
+; Keybindings from videxbind table below
 C3      lda videxbind,y ; Lookup alternate binding
         beq C5      ; If zero then there is no binding
-        bit $c063   ; PB3 shift key
-        bmi C4      ; Not pressed
+        jsr IsShifted
+        bcc C4      ; Not shifted
         jsr putRS   ; Shifted, send the alternate binding in A
         rts
 C4      tya         ; Original ctrl-key code
         jsr putRS   ; Unshifted, send the original ctrl code
         rts
         
+; ---  Shift-Ctrl-a ---
+; caps lock
+C5      tya
+        cmp #$01    ; ^a
+        bne C6
+        bit $c063   ; PB3 shift key
+        bpl Ctoggle ; pressed
+        jsr putRS   ; send ^a
+        rts
+
 ; ---  Shift-Ctrl-q ---
 ; quit CaTer
-C5      tya
-        cmp #$11    ; ^q
+C6      cmp #$11    ; ^q
         bne C8
         bit $c063   ; PB3 shift key
         bpl Cquit   ; pressed
         jsr putRS   ; send ^q
+        rts
+
+        ; toggle caps lock
+Ctoggle lda CapsLock
+        eor #$ff
+        sta CapsLock
         rts
 
         ; quit CaTer
@@ -1110,21 +1128,23 @@ C8      jsr putRS
         rts
 
 ; Table of bindings for Shift-Ctrl key combinations
+; Shift-Ctrl-A is caps lock
 ; Shift-Ctrl-I/J/K/M is the cursor diamond
-; Shift-Ctrl-A    [$01] -> { [$7b]
 ; Shift-Ctrl-B    [$02] -> \ [$5c]
+; Shift-Ctrl-C    [$03] -> { [$7b]
 ; Shift-Ctrl-G    [$07] -> ` [$60]
 ; Shift-Ctrl-N ^^ [$1e] -> ^ [$5e]
 ; Shift-Ctrl-P ^@ [$00] -> @ [$40]
-; Shift-Ctrl-S    [$13] -> } [$7d]
 ; Shift-Ctrl-T    [$14] -> ~ [$7e]
 ; Shift-Ctrl-U    [$15] -> _ [$5f]
+; Shift-Ctrl-V    [$16] -> } [$7d]
 ; Shift-Ctrl-X    [$18] -> ] [$5d]
 ; Shift-Ctrl-Z    [$1a] -> [ [$5b]
+; Shift-Ctrl-??   [$??] -> | [$7c] TODO
 videxbind
 ;     _0  _1  _2  _3  _4  _5  _6  _7  _8  _9  _a  _b  _c  _d  _e  _f
-.byt $40,$7b,$5c,$00,$00,$00,$00,$60,$00,$00,$00,$00,$00,$00,$00,$00  ; 0_
-.byt $00,$00,$00,$7d,$7e,$5f,$00,$00,$5d,$00,$5b,$00,$00,$00,$5e,$00  ; 1_
+.byt $40,$00,$5c,$7b,$00,$00,$00,$60,$00,$00,$00,$00,$00,$00,$00,$00  ; 0_
+.byt $00,$00,$00,$00,$7e,$5f,$7d,$00,$5d,$00,$5b,$00,$00,$00,$5e,$00  ; 1_
 .endif
 
 ; -------------------------------------
@@ -1550,6 +1570,21 @@ VidexGet
         rts
 VG1     ldy BASL     ; Offset in second half of 512 byte page
         lda $cd00,y
+        rts
+
+; -------------------------------------
+; IsShifted - determine if shift is enabled
+;
+; Returns C set if shift on, C clear otherwise
+; -------------------------------------
+IsShifted
+        bit CapsLock ; Check caps lock toggle
+        bmi IS1      ; Caps lock on
+        bit $c063    ; Read PB3 "shift mod"
+        bpl IS1      ; Shifted
+        clc
+        rts
+IS1     sec
         rts
 .endif
 
@@ -2168,6 +2203,7 @@ InitScr
         sta VidexBase
         sta VidexBase+1
         sta START
+        sta CapsLock 
         ldx #12       ; Register 12 - MSbyte of start address
         stx SL3DEV0
         sta SL3DEV1
@@ -2206,8 +2242,13 @@ IS1     txa
 ; -------------------------------------
 
 ExitScr
+.ifndef videx
         ; --- erase screen ---
         jsr $fc58     ; clear current text screen
+.else
+        lda #$8c
+        jsr $c300     ; Initialize Videoterm and clear screen
+.endif
         rts
 
 ; *************************************
@@ -2256,11 +2297,21 @@ ltsc;_0  _1  _2  _3  _4  _5  _6  _7  _8  _9  _a  _b  _c  _d  _e  _f
 
 ; --- reverse ------------------------------------------------------
 ;     ◆   ▒   ␉   ␌   ␍   ␊   °   ±   ␤   ␋   ┘   ┐   ┌   └   ┼   ⎺
+.ifndef videx
 ;    ' '  ▒  ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' '  |  ' ' ' '  |   |   _
 .byt $20,$57,$20,$20,$20,$20,$20,$20,$20,$20,$7c,$20,$20,$7c,$7c,$1f  ; 2_
+.else
+;    ' '  ▒   ␉   ␌   ␍   ␊  ' ' ' ' ' ' ␋   ┘   ┐   ┌   └   ┼   ⎺
+.byt $a0,$ff,$89,$8b,$8c,$8a,$a0,$a0,$a0,$8b,$99,$9c,$96,$93,$9f,$81  ; 6_
+.endif
 ;     ⎻   ─   ⎼   ⎽   ├   ┤   ┴   ┬   │   ≤   ≥   π   ≠   £   ·  ' '
+.ifndef videx
 ;     _   _   _   _   |   |   _   _   |  ' ' ' ' ' ' ' ' ' ' ' ' ' '
 .byt $1f,$1f,$1f,$1f,$7c,$7c,$1f,$1f,$7c,$20,$20,$20,$20,$20,$20,$20  ; 3_
+.else
+;     ⎻   ─   _   _    ├  ┤   ┴   ┬   │  ' ' ' ' ' ' ' ' ' '  .  ' '
+.byt $81,$9a,$cf,$cf,$97,$9d,$9b,$9e,$95,$a0,$a0,$a0,$a0,$a0,$ae,$a0  ; 7_
+.endif
 
 ; --- unused -------------------------------------------------------
 .byt $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00  ; 4_
@@ -2272,16 +2323,16 @@ ltsc;_0  _1  _2  _3  _4  _5  _6  _7  _8  _9  _a  _b  _c  _d  _e  _f
 ;     ◆   ▒  ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' '  ⎸  ' '  _   ⎿   ⎿   ⎺
 .byt $5b,$56,$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0,$5f,$a0,$9f,$54,$54,$4c  ; 6_
 .else
-;    ' ' ▒   ␉   ␌   ␍   ␊   ' ' ' ' ' ' ' ' ┘   ┐   ┌   └   ┼   ⎺
-.byt $a0,$7f,$09,$0b,$0c,$0a,$a0,$a0,$a0,$a0,$19,$1c,$16,$13,$1f,$4c  ; 6_
+;    ' '  ▒   ␉   ␌   ␍   ␊  ' ' ' ' ' ' ␋   ┘   ┐   ┌   └   ┼   ⎺
+.byt $20,$7f,$09,$0b,$0c,$0a,$20,$20,$20,$0b,$19,$1c,$16,$13,$1f,$01  ; 6_
 .endif
-;     ⎻   ─   ⎼   ⎽    ├   ┤   ┴   ┬   │  ≤   ≥   π   ≠   £   ·  ' '
+;     ⎻   ─   ⎼   ⎽    ├  ┤   ┴   ┬   │  ≤   ≥   π   ≠   £   ·  ' '
 .ifndef videx
 ;     ─   _   _   _   ⎿   ⎸   ⎿   _   ⎸  ' ' ' ' ' ' ' ' ' ' ' ' ' '
 .byt $53,$9f,$9f,$9f,$54,$5f,$54,$9f,$5f,$a0,$a0,$a0,$a0,$a0,$a0,$a0  ; 7_
 .else
-;     ─   ─   _   _   ⎿   ⎸   ┴   _   │  ' ' ' ' ' ' ' ' ' ' ' ' ' '
-.byt $53,$1a,$9f,$9f,$54,$5f,$1b,$9f,$15,$a0,$a0,$a0,$a0,$a0,$a0,$a0  ; 7_
+;     ⎻   ─   _   _    ├  ┤   ┴   ┬   │  ' ' ' ' ' ' ' ' ' '  .  ' '
+.byt $01,$1a,$5f,$5f,$17,$1d,$1b,$1e,$15,$20,$20,$20,$20,$20,$2e,$20  ; 7_
 .endif
 
 ; -------------------------------------
